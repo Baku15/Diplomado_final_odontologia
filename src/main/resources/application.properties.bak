@@ -1,0 +1,33 @@
+spring.application.name=diplomado_final
+# Puerto
+server.port=8080
+
+# Base de datos
+spring.datasource.url=jdbc:postgresql://localhost:5432/odontodb
+spring.datasource.username=postgres
+spring.datasource.password=breick1010
+
+# JPA / Hibernate
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation=true
+spring.jpa.properties.hibernate.jdbc.time_zone=UTC
+
+# Jackson
+spring.jackson.serialization.write-dates-as-timestamps=false
+# spring.jackson.time-zone=America/La_Paz
+
+# Logging
+logging.level.org.springframework.security=DEBUG
+logging.level.org.springframework.security.oauth2=DEBUG
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=freddyleo15@gmail.com
+spring.mail.password=nehcibdlgljbcgbj
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+# Valida la conexión al arrancar (si algo está mal, te avisa)
+spring.mail.test-connection=true
+spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8080
+

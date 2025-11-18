@@ -7,4 +7,6 @@ public class ApproveRegistrationDto {
     private String username;         // opcional; si no, se genera
     private String roleName;         // p.ej. "ROLE_PATIENT"
     private Boolean sendTempPassword = true;
+    private Long clinicId;     // si manejas multi-clínica
+
 }

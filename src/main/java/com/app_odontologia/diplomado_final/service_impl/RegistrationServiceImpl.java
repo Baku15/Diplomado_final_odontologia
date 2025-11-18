@@ -1,24 +1,29 @@
 package com.app_odontologia.diplomado_final.service_impl;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.app_odontologia.diplomado_final.dto.ApproveRegistrationDto;
 import com.app_odontologia.diplomado_final.dto.RegistrationRequestCreateDto;
 import com.app_odontologia.diplomado_final.dto.RegistrationRequestViewDto;
+import com.app_odontologia.diplomado_final.model.entity.Clinic;
 import com.app_odontologia.diplomado_final.model.entity.RegistrationRequest;
+import com.app_odontologia.diplomado_final.model.entity.User;
 import com.app_odontologia.diplomado_final.model.enums.RegistrationStatus;
+import com.app_odontologia.diplomado_final.model.enums.UserStatus;
+import com.app_odontologia.diplomado_final.repository.ClinicRepository;
 import com.app_odontologia.diplomado_final.repository.RegistrationRequestRepository;
+import com.app_odontologia.diplomado_final.repository.UserRepository;
+import com.app_odontologia.diplomado_final.service.ActivationService;
 import com.app_odontologia.diplomado_final.service.MailService;
 import com.app_odontologia.diplomado_final.service.RegistrationService;
 import com.app_odontologia.diplomado_final.service.UserService;
 import com.app_odontologia.diplomado_final.util.MappingUtils;
-import com.app_odontologia.diplomado_final.util.PasswordGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import jakarta.transaction.Transactional;
 
 import java.time.Instant;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -29,11 +34,14 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final RegistrationRequestRepository rrRepo;
     private final UserService userService;
     private final MailService mailService;
+    private final UserRepository userRepository;
+    private final ActivationService activationService;
+    private final ClinicRepository clinicRepo;
 
     @Override
     public RegistrationRequest create(RegistrationRequestCreateDto dto) {
         rrRepo.findByEmail(dto.getEmail()).ifPresent(r -> {
-            if (r.getStatus() == RegistrationStatus.PENDIENTE) {
+            if (r.getStatus() == RegistrationStatus.PENDING_REVIEW) {
                 throw new IllegalStateException("Ya existe una solicitud pendiente para este email.");
             }
         });
@@ -45,65 +53,85 @@ public class RegistrationServiceImpl implements RegistrationService {
         rr.setOcupacion(dto.getOcupacion());
         rr.setZona(dto.getZona());
         rr.setDireccion(dto.getDireccion());
-        rr.setStatus(RegistrationStatus.PENDIENTE);
+        rr.setStatus(RegistrationStatus.PENDING_REVIEW);
+
         return rrRepo.save(rr);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<RegistrationRequestViewDto> listPending(Pageable pageable) {
-        return rrRepo.findByStatus(RegistrationStatus.PENDIENTE, pageable)
+        return rrRepo.findByStatus(RegistrationStatus.PENDING_REVIEW, pageable)
                 .map(MappingUtils::toViewDto);
     }
 
     @Override
     public void approve(Long id, ApproveRegistrationDto dto, String adminUsername) {
-        RegistrationRequest rr = rrRepo.findById(id).orElseThrow();
-        if (rr.getStatus() != RegistrationStatus.PENDIENTE) {
-            throw new IllegalStateException("No está pendiente.");
+        var rr = rrRepo.findById(id).orElseThrow();
+        if (rr.getStatus() != RegistrationStatus.PENDING_REVIEW) {
+            throw new IllegalStateException("La solicitud no está pendiente.");
         }
 
+        // Username sugerido o auto-generado
         String username = (dto.getUsername() != null && !dto.getUsername().isBlank())
                 ? dto.getUsername()
                 : generateUsername(rr.getNombre(), rr.getApellido());
 
-        String tempPassword = PasswordGenerator.secureTemp(); // 12-16+ caracteres seguros
+        // Password temporal (no se usará directamente; el usuario la cambiará al activar)
+        String dummyPassword = UUID.randomUUID().toString();
 
-        userService.createUserFromRegistration(
+        // ⬇️ IMPORTANTE: ahora el usuario aprobado es un CLINIC_ADMIN
+        //    (dueño/administrador de SU clínica, puede o no ser dentista)
+        User user = userService.createUserFromRegistration(
                 rr,
                 username,
-                tempPassword,
-                dto.getRoleName() != null ? dto.getRoleName() : "ROLE_PATIENT"
+                dummyPassword,
+                "ROLE_CLINIC_ADMIN"   // antes: "ROLE_DENTIST"
         );
 
-        rr.setStatus(RegistrationStatus.APROBADA);
+        // El usuario queda en estado PENDING_ACTIVATION hasta que use el enlace
+        user.setStatus(UserStatus.PENDING_ACTIVATION);
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+
+        // Crear la clínica asociada a este usuario admin
+        Clinic clinic = new Clinic();
+        clinic.setAdmin(user);
+        clinicRepo.save(clinic);
+
+        // Generar token y enviar enlace de activación (24 horas de vigencia)
+        String token = activationService.createActivationToken(user.getId(), 24);
+        String activationLink = "http://localhost:4200/activar?token=" + token;
+        mailService.sendActivationEmail(rr.getEmail(), activationLink);
+
+        // Marcar solicitud como aprobada
+        rr.setStatus(RegistrationStatus.APPROVED);
         rr.setReviewedAt(Instant.now());
         rr.setReviewedBy(adminUsername);
         rrRepo.save(rr);
-
-        if (Boolean.TRUE.equals(dto.getSendTempPassword())) {
-            mailService.sendCredentialsEmail(rr.getEmail(), username, tempPassword);
-        }
     }
 
     @Override
     public void reject(Long id, String adminUsername, String reason) {
         RegistrationRequest rr = rrRepo.findById(id).orElseThrow();
-        rr.setStatus(RegistrationStatus.RECHAZADA);
+        rr.setStatus(RegistrationStatus.REJECTED);
         rr.setReviewedAt(Instant.now());
         rr.setReviewedBy(adminUsername);
         rrRepo.save(rr);
-        // TODO: (Opcional) enviar email de rechazo con 'reason'
+        // opcional: enviar email informando rechazo (usando reason)
     }
 
-    // --- helper privado ---
     private String generateUsername(String nombre, String apellido) {
         String n = (nombre != null && !nombre.isBlank()) ? nombre.trim() : "user";
         String a = (apellido != null && !apellido.isBlank()) ? apellido.trim() : "app";
-        String base = (String.valueOf(n.charAt(0)) + a)
+
+        String base = (n.substring(0, 1) + a)
                 .toLowerCase()
                 .replaceAll("[^a-z0-9]", "");
-        String suffix = String.format("%04d", ThreadLocalRandom.current().nextInt(0, 10000));
+
+        String suffix = String.format("%04d",
+                ThreadLocalRandom.current().nextInt(0, 10000));
+
         return base + suffix;
     }
 }

@@ -30,6 +30,10 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Column(nullable = false)
+    private Boolean mustChangePassword = false;
+
+
     private String nombres;
     private String apellidos;
     private String ocupacion;
@@ -37,7 +41,7 @@ public class User implements UserDetails {
     private String direccion;
 
     @Enumerated(EnumType.STRING)
-    private UserStatus status = UserStatus.ACTIVO;
+    private UserStatus status = UserStatus.PENDING_ACTIVATION;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
@@ -45,12 +49,31 @@ public class User implements UserDetails {
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
 
+    // Relacion con Clinica
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "clinica_id")
+    private Clinic clinic;
+
+    // Relacion con usuario Creador
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "creado_por_id")
+    private User createdBy; // trazabilidad
+
+    // helper
+    public boolean hasRole(String roleName) {
+        return roles.stream().anyMatch(r -> r.getName().equals(roleName));
+    }
+
     // Métodos de UserDetails:
     @Override public Collection<? extends GrantedAuthority> getAuthorities() {
         return roles.stream().map(r -> new SimpleGrantedAuthority(r.getName())).toList();
     }
     @Override public boolean isAccountNonExpired() { return true; }
-    @Override public boolean isAccountNonLocked() { return status != UserStatus.BLOQUEADO; }
+    @Override public boolean isAccountNonLocked() { return status != UserStatus.BLOCKED; }
     @Override public boolean isCredentialsNonExpired() { return true; }
-    @Override public boolean isEnabled() { return status == UserStatus.ACTIVO; }
+    @Override
+    public boolean isEnabled() {
+        // Habilitado solo cuando el usuario está ACTIVO
+        return status == UserStatus.ACTIVE;
+    }
 }

@@ -11,15 +11,23 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/registration")
+@RequestMapping("/api/public")
 @RequiredArgsConstructor
 public class PublicRegistrationController {
+
     private final RegistrationService registrationService;
 
-    @PostMapping
-    public ResponseEntity<ApiResponse> create(@Valid @RequestBody RegistrationRequestCreateDto dto) {
-        registrationService.create(dto);
-        return ResponseEntity.ok(new ApiResponse("Solicitud recibida. Te contactaremos por email."));
+    @PostMapping("/registration/dentist")
+    public ResponseEntity<?> create(@RequestBody RegistrationRequestCreateDto dto) {
+        var rr = registrationService.create(dto);
+
+        // Devolvemos JSON clarito
+        return ResponseEntity.ok(Map.of(
+                "ok", true,
+                "id", rr.getId()
+        ));
     }
 }

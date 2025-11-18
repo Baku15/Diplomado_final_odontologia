@@ -16,4 +16,7 @@ public class RegistrationRequestViewDto {
     private String direccion;
     private RegistrationStatus status;
     private Instant createdAt;
+
+    private boolean dentist;
+
 }

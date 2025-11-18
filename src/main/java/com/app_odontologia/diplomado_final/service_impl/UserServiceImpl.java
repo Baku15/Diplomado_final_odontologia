@@ -14,6 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -32,13 +34,32 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
     }
 
+    // ============================
+    //   MÉTODO ANTIGUO (compatible)
+    // ============================
     @Override
     public User createUserFromRegistration(RegistrationRequest rr, String username, String rawPassword, String roleName) {
-        userRepo.findByUsername(username).ifPresent(u -> { throw new IllegalStateException("Username ya está en uso"); });
-        userRepo.findByEmail(rr.getEmail()).ifPresent(u -> { throw new IllegalStateException("Email ya está en uso"); });
+        return createUserFromRegistration(rr, username, rawPassword, List.of(roleName));
+    }
 
-        Role role = roleRepo.findByName(roleName)
-                .orElseThrow(() -> new IllegalStateException("Rol no existe: " + roleName));
+    // ==========================================
+    //   NUEVO MÉTODO — MULTI ROLES (USAR ESTE)
+    // ==========================================
+    @Override
+    public User createUserFromRegistration(
+            RegistrationRequest rr,
+            String username,
+            String rawPassword,
+            List<String> roleNames
+    ) {
+
+        userRepo.findByUsername(username).ifPresent(u -> {
+            throw new IllegalStateException("Username ya está en uso");
+        });
+
+        userRepo.findByEmail(rr.getEmail()).ifPresent(u -> {
+            throw new IllegalStateException("Email ya está en uso");
+        });
 
         User user = new User();
         user.setUsername(username);
@@ -49,8 +70,15 @@ public class UserServiceImpl implements UserService {
         user.setOcupacion(rr.getOcupacion());
         user.setZona(rr.getZona());
         user.setDireccion(rr.getDireccion());
-        user.setStatus(UserStatus.ACTIVO);
-        user.getRoles().add(role);
+        user.setStatus(UserStatus.PENDING_ACTIVATION);
+
+        // Agregar cada rol
+        for (String roleName : roleNames) {
+            Role role = roleRepo.findByName(roleName)
+                    .orElseThrow(() -> new IllegalStateException("Rol no existe: " + roleName));
+
+            user.getRoles().add(role);
+        }
 
         return userRepo.save(user);
     }

@@ -17,6 +17,10 @@ public final class MappingUtils {
         dto.setDireccion(rr.getDireccion());
         dto.setStatus(rr.getStatus());
         dto.setCreatedAt(rr.getCreatedAt());
+
+        // Asegúrate que la entidad RegistrationRequest tenga isDentist()
+        dto.setDentist(rr.isDentist());  // getter será isDentist() tras renombrar field a 'dentist'
+
         return dto;
     }
 }

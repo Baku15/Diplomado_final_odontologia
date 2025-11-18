@@ -28,9 +28,12 @@ public class RegistrationRequest {
     // otros campos...
 
     @Enumerated(EnumType.STRING)
-    private RegistrationStatus status = RegistrationStatus.PENDIENTE;
+    private RegistrationStatus status = RegistrationStatus.PENDING_REVIEW;
 
     private Instant createdAt = Instant.now();
     private Instant reviewedAt;
     private String reviewedBy; // username del superusuario
+
+    @Column(name = "is_dentist", nullable = false)
+    private boolean dentist = false;
 }

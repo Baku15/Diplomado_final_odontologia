@@ -15,4 +15,7 @@ public class RegistrationRequestCreateDto {
     private String zona;
     private String direccion;
     // otros...
+
+    private boolean dentist = false;
+
 }
