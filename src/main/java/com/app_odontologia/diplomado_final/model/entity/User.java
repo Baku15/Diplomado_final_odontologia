@@ -3,7 +3,9 @@ package com.app_odontologia.diplomado_final.model.entity;
 import com.app_odontologia.diplomado_final.model.enums.UserStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,7 +16,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "users")
-@Data
+@Getter @Setter
+@ToString(exclude = {"clinic", "createdBy"})
 public class User implements UserDetails {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,7 +35,6 @@ public class User implements UserDetails {
 
     @Column(nullable = false)
     private Boolean mustChangePassword = false;
-
 
     private String nombres;
     private String apellidos;
@@ -57,7 +59,16 @@ public class User implements UserDetails {
     // Relacion con usuario Creador
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creado_por_id")
-    private User createdBy; // trazabilidad
+    private User createdBy;
+
+    @Column(nullable = false)
+    private Boolean mustCompleteProfile = false;
+
+    // Si deseas almacenar especialidad y matricula:
+    private String especialidad;
+    private String matricula;
+    private String telefonoClinico;
+    private String bioClinica;
 
     // helper
     public boolean hasRole(String roleName) {
@@ -73,7 +84,6 @@ public class User implements UserDetails {
     @Override public boolean isCredentialsNonExpired() { return true; }
     @Override
     public boolean isEnabled() {
-        // Habilitado solo cuando el usuario está ACTIVO
         return status == UserStatus.ACTIVE;
     }
 }

@@ -27,7 +27,10 @@ spring.mail.password=nehcibdlgljbcgbj
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
-# Valida la conexión al arrancar (si algo está mal, te avisa)
+
 spring.mail.test-connection=true
 spring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:8080
 
+app.oauth.backend.client-id=odontoweb-backend
+app.oauth.backend.client-secret=b4ck3nd-s3cr3t
+app.oauth.as-base-url=http://localhost:8080

@@ -1,17 +1,18 @@
 package com.app_odontologia.diplomado_final.config;
-
 import java.time.Duration;
 import java.util.stream.Collectors;
 
+import com.app_odontologia.diplomado_final.repository.UserRepository;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.Authentication;
@@ -34,14 +35,17 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.RequestMatcher;
-import org.springframework.security.web.util.matcher.OrRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
 public class AuthorizationServerConfig {
 
+    // NOTE: NO inyectar UserService ni cualquier bean que dependa de beans de este config
+    // private final UserService userService;  <-- QUITADO
 
-    // 🔹 1️⃣ Cadena del Authorization Server
+    // -----------------------------
+    // Authorization Server filter chain
+    // -----------------------------
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -60,8 +64,17 @@ public class AuthorizationServerConfig {
         return http.build();
     }
 
-// Dentro de AuthorizationServerConfig
+    // -----------------------------
+    // Use AuthenticationConfiguration to obtain AuthenticationManager (no UserService injected here)
+    // -----------------------------
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+        return authConfig.getAuthenticationManager();
+    }
 
+    // -----------------------------
+    // Registered clients (SPA + backend)
+    // -----------------------------
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
         var tokenSettings = TokenSettings.builder()
@@ -90,7 +103,6 @@ public class AuthorizationServerConfig {
                 .tokenSettings(tokenSettings)
                 .build();
 
-        // CLIENTE CONFIDENCIAL para llamadas server-side (revocación)
         var backendClientSettings = ClientSettings.builder()
                 .requireProofKey(false)
                 .requireAuthorizationConsent(false)
@@ -98,11 +110,9 @@ public class AuthorizationServerConfig {
 
         var backendClient = RegisteredClient.withId("backend-client")
                 .clientId("odontoweb-backend")
-                // la secret real la guardaremos en application.properties y aquí la colocamos "en claro"
-                // Spring maneja el encoding con PasswordEncoder si es necesario. (Puedes usar same encoder)
                 .clientSecret(passwordEncoder().encode("b4ck3nd-s3cr3t"))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS) // para poder autenticarse al revocation endpoint
+                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                 .scope("api.read")
                 .clientSettings(backendClientSettings)
                 .tokenSettings(tokenSettings)
@@ -111,14 +121,17 @@ public class AuthorizationServerConfig {
         return new InMemoryRegisteredClientRepository(angularSpa, backendClient);
     }
 
-
-    // 🔹 JWT Decoder (valida los tokens firmados por este AS)
+    // -----------------------------
+    // JWT Decoder (valida tokens firmados por este AS)
+    // -----------------------------
     @Bean
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
         return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
     }
 
-    // 🔹 Configuración del AS (issuer URL)
+    // -----------------------------
+    // Authorization Server settings (issuer)
+    // -----------------------------
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder()
@@ -126,13 +139,17 @@ public class AuthorizationServerConfig {
                 .build();
     }
 
-    // 🔹 Password encoder
+    // -----------------------------
+    // Password encoder
+    // -----------------------------
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // 🔹 Llave JWK RSA en memoria (para firmar tokens)
+    // -----------------------------
+    // JWK Source (RSA key)
+    // -----------------------------
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
         RSAKey rsa = Jwks.generateRsa();
@@ -140,35 +157,36 @@ public class AuthorizationServerConfig {
         return (selector, ctx) -> selector.select(jwkSet);
     }
 
-    // 🔹 Customizer: agrega “roles” y “username” al access token
+    // -----------------------------
+    // Token customizer: añade roles, username, clinic_id, user_id, mustCompleteProfile
+    // -----------------------------
     @Bean
-    public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
+    public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer(UserRepository userRepo) {
         return context -> {
             Authentication auth = context.getPrincipal();
             if (auth == null) return;
 
+            var claims = context.getClaims();
+
+            // Roles sin prefijo
             var roles = auth.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)       // "ROLE_SUPERUSER"
-                    .map(a -> a.replaceFirst("^ROLE_", ""))    // -> "SUPERUSER"
+                    .map(GrantedAuthority::getAuthority)
+                    .map(a -> a.replaceFirst("^ROLE_", ""))
                     .collect(Collectors.toList());
 
-            // Añadimos las claims tanto al access_token como al id_token
-            String tokenType = context.getTokenType().getValue(); // e.g. "access_token" o "id_token"
-            if ("access_token".equals(tokenType) || "id_token".equals(tokenType)) {
-                context.getClaims()
-                        .claim("roles", roles)
-                        .claim("username", auth.getName());
+            claims.claim("roles", roles);
+            claims.claim("username", auth.getName());
 
-                // Si tu principal es la entidad User, añade user_id / clinic_id también
-                Object principal = auth.getPrincipal();
-                if (principal instanceof com.app_odontologia.diplomado_final.model.entity.User) {
-                    var u = (com.app_odontologia.diplomado_final.model.entity.User) principal;
-                    if (u.getId() != null) context.getClaims().claim("user_id", u.getId());
-                    if (u.getClinic() != null && u.getClinic().getId() != null)
-                        context.getClaims().claim("clinic_id", u.getClinic().getId());
-                }
-            }
+            // Obtener usuario real
+            userRepo.findByUsername(auth.getName()).ifPresent(u -> {
+                claims.claim("user_id", u.getId());
+
+                if (u.getClinic() != null && u.getClinic().getId() != null)
+                    claims.claim("clinic_id", u.getClinic().getId());
+
+                if (u.getMustCompleteProfile() != null)
+                    claims.claim("mustCompleteProfile", u.getMustCompleteProfile());
+            });
         };
     }
 }
-
