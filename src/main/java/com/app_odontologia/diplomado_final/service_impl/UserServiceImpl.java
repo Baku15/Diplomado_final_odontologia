@@ -319,12 +319,41 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         dto.setUsername(u.getUsername());
         dto.setEmail(u.getEmail());
         dto.setMustCompleteProfile(u.getMustCompleteProfile());
-        dto.setRoles(u.getRoles().stream().map(Role::getName).toList());
 
+        // roles como antes
+        dto.setRoles(
+                u.getRoles().stream()
+                        .map(r -> r.getName())
+                        .toList()
+        );
+
+        // clinicId si existe
         if (u.getClinic() != null) {
             dto.setClinicId(u.getClinic().getId());
         }
 
+        // ---- NUEVOS CAMPOS NOMBRE FHIR-FRIENDLY ----
+        dto.setGivenName(u.getNombres());
+        dto.setFamilyName(u.getApellidos());
+
+        String nombres = u.getNombres() != null ? u.getNombres().trim() : "";
+        String apellidos = u.getApellidos() != null ? u.getApellidos().trim() : "";
+        String fullName = (nombres + " " + apellidos).trim();
+
+        dto.setFullName(fullName.isEmpty() ? null : fullName);
+
+        // ---- FLAGS DERIVADOS DE ROLES ----
+        boolean isDentist = u.getRoles().stream()
+                .anyMatch(r -> "ROLE_DENTIST".equalsIgnoreCase(r.getName()));
+
+        boolean isClinicAdmin = u.getRoles().stream()
+                .anyMatch(r -> "ROLE_CLINIC_ADMIN".equalsIgnoreCase(r.getName()));
+
+        dto.setDentist(isDentist);
+        dto.setClinicAdmin(isClinicAdmin);
+
         return dto;
     }
+
+
 }
