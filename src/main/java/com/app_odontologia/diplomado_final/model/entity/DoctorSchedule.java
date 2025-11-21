@@ -1,68 +1,69 @@
+// src/main/java/com/app_odontologia/diplomado_final/model/entity/DoctorSchedule.java
 package com.app_odontologia.diplomado_final.model.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.time.DayOfWeek;
-import java.time.LocalTime;
 import java.time.Instant;
+import java.time.LocalTime;
 
 @Entity
-@Table(name = "doctor_schedules")
-@Data
+@Table(
+        name = "doctor_schedules",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"doctor_id", "room_id", "day_of_week"})
+        }
+)
+@Getter
+@Setter
 public class DoctorSchedule {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * Perfil del doctor al que pertenece este bloque horario.
-     * (Practitioner en términos FHIR)
-     */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "doctor_profile_id", nullable = false)
-    private DoctorProfile doctor;
+    // Usuario odontólogo (User con ROLE_DENTIST)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "doctor_id", nullable = false)
+    private User doctor;
 
-    /**
-     * Consultorio donde atiende en este horario.
-     * (Location en términos FHIR)
-     */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    // Consultorio donde atiende ese día (su consultorio principal)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
     private ClinicRoom room;
 
     /**
-     * Día de la semana (LUNES, MARTES, etc).
-     * Usamos java.time.DayOfWeek para que sea estándar y legible.
+     * Día de la semana: 1 = Lunes ... 7 = Domingo.
+     * (podrías usar un enum si luego quieres)
      */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "day_of_week", nullable = false, length = 10)
-    private DayOfWeek dayOfWeek;
+    @Column(name = "day_of_week", nullable = false)
+    private Integer dayOfWeek;
 
-    /**
-     * Hora de inicio de atención (ej. 09:00).
-     */
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
 
-    /**
-     * Hora fin de atención (ej. 13:00).
-     */
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
 
-    /**
-     * Flag activo/inactivo por si necesitas desactivar un horario
-     * sin borrarlo permanentemente.
-     */
+    @Column(name = "has_break", nullable = false)
+    private Boolean hasBreak = false;
+
+    @Column(name = "break_start")
+    private LocalTime breakStart;
+
+    @Column(name = "break_end")
+    private LocalTime breakEnd;
+
+    @Column(name = "chairs", nullable = false)
+    private Integer chairs = 1;
+
     @Column(nullable = false)
     private Boolean active = true;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
-    @Column(nullable = false)
     private Instant updatedAt = Instant.now();
 
     @PreUpdate

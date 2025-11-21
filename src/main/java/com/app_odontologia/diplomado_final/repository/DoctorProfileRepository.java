@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface DoctorProfileRepository extends JpaRepository<DoctorProfile, Long> {
     Optional<DoctorProfile> findByUserId(Long userId);
     Optional<DoctorProfile> findByLicenseNumber(String licenseNumber);
+    Optional<DoctorProfile> findByUser(User user);
+
 }

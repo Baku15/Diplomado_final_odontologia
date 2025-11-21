@@ -1,20 +1,16 @@
-// dto/DoctorProfileUpdateDto.java
 package com.app_odontologia.diplomado_final.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class DoctorProfileUpdateDto {
 
-    @NotBlank
-    private String licenseNumber;
+    private String licenseNumber;   // matrícula
+    private String specialty;       // especialidad (texto)
+    private String phone;           // teléfono
+    private String address;         // dirección
+    private String bio;             // breve descripción / bio
 
-    private String specialty;
-    private String phone;
-    private String address;
-    private String bio;
-
-    // 🔹 id del consultorio seleccionado en el combo
-    private Long roomId;
+    // 👇 clave: consultorio principal donde atenderá
+    private Long primaryRoomId;
 }

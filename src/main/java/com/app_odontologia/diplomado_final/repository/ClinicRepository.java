@@ -8,4 +8,6 @@ import java.util.Optional;
 
 public interface ClinicRepository extends JpaRepository<Clinic, Long> {
     Optional<Clinic> findByAdmin(User admin);
+
+
 }
