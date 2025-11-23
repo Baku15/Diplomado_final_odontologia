@@ -6,7 +6,9 @@ import com.app_odontologia.diplomado_final.model.enums.UserStatus;
 import com.app_odontologia.diplomado_final.repository.ActivationTokenRepository;
 import com.app_odontologia.diplomado_final.repository.UserRepository;
 import com.app_odontologia.diplomado_final.service.ActivationService;
+import com.app_odontologia.diplomado_final.service.MailService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +22,11 @@ public class ActivationServiceImpl implements ActivationService {
     private final ActivationTokenRepository tokenRepo;
     private final UserRepository userRepo;
     private final PasswordEncoder passwordEncoder;
+    private final MailService mailService;
+
+    // URL base del front: http://localhost:4200 en dev
+    @Value("${app.frontend-base-url:http://localhost:4200}")
+    private String frontendBaseUrl;
 
     @Override
     public String createActivationToken(Long userId, long ttlHours) {
@@ -56,5 +63,20 @@ public class ActivationServiceImpl implements ActivationService {
         // 🔹 Marca el token como usado
         t.setUsed(true);
         tokenRepo.save(t);
+    }
+
+    @Override
+    public void createActivationForUserAndSendEmail(User user) {
+        // 1) borrar tokens anteriores de ese usuario
+        tokenRepo.deleteByUser(user);
+
+        // 2) crear un nuevo token válido por 72 horas (3 días, ajustable)
+        String token = createActivationToken(user.getId(), 72);
+
+        // 3) construir el enlace para el front
+        String activationLink = frontendBaseUrl + "/activar?token=" + token;
+
+        // 4) enviar correo usando tu MailService
+        mailService.sendActivationEmail(user.getEmail(), activationLink);
     }
 }

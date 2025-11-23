@@ -90,15 +90,11 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // Endpoints públicos
-                        .requestMatchers(HttpMethod.POST, "/api/public/registration/dentist").permitAll()
+                        // 🔹 TODOS los endpoints públicos bajo /api/public/** (incluye doctor-invitations)
+                        .requestMatchers("/api/public/**").permitAll()
 
-                        // 🔐 ACTIVACIÓN: debe ser público porque el usuario aún no está logueado
+                        // 🔐 ACTIVACIÓN: también pública (si quieres podrías quitarla porque ya entra en /api/public/** si la mueves allí)
                         .requestMatchers(HttpMethod.POST, "/api/auth/activate/**").permitAll()
-
-                        // (si ya no usas /api/public/activate puedes borrar esta línea,
-                        //  si aún la usas, déjala)
-                        // .requestMatchers(HttpMethod.POST, "/api/public/activate").permitAll()
 
                         // Admin protegido por rol
                         .requestMatchers("/api/admin/**").hasRole("SUPERUSER")
@@ -121,6 +117,7 @@ public class SecurityConfig {
 
         return http.build();
     }
+
 
     @Bean
     @Order(99)

@@ -1,5 +1,6 @@
 package com.app_odontologia.diplomado_final.controller;
 
+import com.app_odontologia.diplomado_final.dto.DoctorProfileMeDto;
 import com.app_odontologia.diplomado_final.dto.DoctorProfileUpdateDto;
 import com.app_odontologia.diplomado_final.model.entity.Clinic;
 import com.app_odontologia.diplomado_final.model.entity.ClinicRoom;
@@ -8,8 +9,11 @@ import com.app_odontologia.diplomado_final.model.entity.User;
 import com.app_odontologia.diplomado_final.repository.ClinicRoomRepository;
 import com.app_odontologia.diplomado_final.repository.DoctorProfileRepository;
 import com.app_odontologia.diplomado_final.repository.UserRepository;
+import com.app_odontologia.diplomado_final.service.DoctorProfileSelfService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +25,8 @@ public class DoctorProfileController {
     private final UserRepository userRepository;
     private final DoctorProfileRepository doctorProfileRepository;
     private final ClinicRoomRepository clinicRoomRepository;
+    private final DoctorProfileSelfService doctorProfileSelfService;
+
 
     @PostMapping("/doctor-profile")
     public ResponseEntity<?> saveMyDoctorProfile(
@@ -71,5 +77,22 @@ public class DoctorProfileController {
         userRepository.save(user);
 
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/doctor-profile")
+    @PreAuthorize("hasAuthority('ROLE_DENTIST')")
+    public DoctorProfileMeDto getMyProfile(Authentication auth) {
+        String username = auth.getName();
+        return doctorProfileSelfService.getMyProfile(username);
+    }
+
+    @PutMapping("/doctor-profile")
+    @PreAuthorize("hasAuthority('ROLE_DENTIST')")
+    public DoctorProfileMeDto updateMyProfile(
+            @Valid @RequestBody DoctorProfileMeDto dto,
+            Authentication auth
+    ) {
+        String username = auth.getName();
+        return doctorProfileSelfService.updateMyProfile(username, dto);
     }
 }

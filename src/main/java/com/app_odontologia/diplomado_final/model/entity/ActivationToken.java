@@ -9,7 +9,9 @@ import java.time.Instant;
 @Table(name = "activation_tokens")
 @Data
 public class ActivationToken {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(unique = true, nullable = false)
@@ -19,11 +21,13 @@ public class ActivationToken {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    // ⬇️ nuevo (opcional, pero muy útil)
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
     @Column(nullable = false)
-    private java.time.Instant expiresAt;
+    private Instant expiresAt;
 
     @Column(nullable = false)
     private boolean used = false;
-
-
 }

@@ -1,9 +1,9 @@
 package com.app_odontologia.diplomado_final.controller;
 
-import com.app_odontologia.diplomado_final.dto.CreateStaffDto;
-import com.app_odontologia.diplomado_final.dto.StaffViewDto;
-import com.app_odontologia.diplomado_final.dto.UpdateStaffDto;
+import com.app_odontologia.diplomado_final.context.ClinicContext;
+import com.app_odontologia.diplomado_final.dto.*;
 import com.app_odontologia.diplomado_final.model.entity.User;
+import com.app_odontologia.diplomado_final.service.StaffService;
 import com.app_odontologia.diplomado_final.service.UserService;
 import com.app_odontologia.diplomado_final.repository.UserRepository;
 import com.app_odontologia.diplomado_final.repository.ClinicRepository;
@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
@@ -27,6 +28,7 @@ public class ClinicStaffController {
     private final UserService userService;
     private final UserRepository userRepository;
     private final ClinicRepository clinicRepository;
+    private final StaffService staffService;
 
     // Crear odontólogo
     @PostMapping("/doctors")
@@ -161,5 +163,40 @@ public class ClinicStaffController {
 
         userService.setUserStatus(userId, "BLOCKED", auth.getName());
         return ResponseEntity.ok().build();
+    }
+
+    // Invitar doctor por correo (no crea usuario aún)
+    @PostMapping("/doctors/invitations")
+    @PreAuthorize("hasRole('CLINIC_ADMIN')")
+    public ResponseEntity<DoctorInvitationDto> inviteDoctor(
+            @PathVariable Long clinicId,
+            @Valid @RequestBody InviteDoctorRequestDto request,
+            Authentication auth
+    ) {
+        // 1) Validar que el usuario autenticado es admin de la clínica
+        var clinic = clinicRepository.findById(clinicId)
+                .orElseThrow(() -> new IllegalStateException("Clínica no encontrada"));
+
+        if (clinic.getAdmin() == null
+                || !clinic.getAdmin().getUsername().equals(auth.getName())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        // 2) Validar que no exista ya un usuario con ese correo
+        String email = request.getEmail();
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new IllegalArgumentException(
+                    "Ya existe un usuario registrado con ese correo electrónico."
+            );
+        }
+
+        // 3) Delegar lógica de invitación al servicio
+        DoctorInvitationDto dto = staffService.inviteDoctor(
+                clinicId,                   // clínica a la que se invita
+                request,                    // datos del doctor
+                auth.getName()              // quién hizo la invitación
+        );
+
+        return ResponseEntity.ok(dto);
     }
 }

@@ -1,4 +1,5 @@
-package com.app_odontologia.diplomado_final.service_impl;// src/main/java/com/app_odontologia/diplomado_final/service/impl/DoctorScheduleServiceImpl.java
+// src/main/java/com/app_odontologia/diplomado_final/service_impl/DoctorScheduleServiceImpl.java
+package com.app_odontologia.diplomado_final.service_impl;
 
 import com.app_odontologia.diplomado_final.dto.DoctorDayScheduleDto;
 import com.app_odontologia.diplomado_final.dto.DoctorWeeklyScheduleDto;
@@ -49,7 +50,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         List<DoctorDayScheduleDto> days = new ArrayList<>();
 
         for (int d = 1; d <= 7; d++) {
-            final int day = d;   // 👈 copia efectivamente final
+            final int day = d;
 
             DoctorDayScheduleDto dto = new DoctorDayScheduleDto();
             dto.setDayOfWeek(day);
@@ -69,8 +70,12 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
                 dto.setChairs(found.getChairs());
 
                 if (Boolean.TRUE.equals(found.getHasBreak())) {
-                    dto.setBreakStart(found.getBreakStart() != null ? found.getBreakStart().toString() : null);
-                    dto.setBreakEnd(found.getBreakEnd() != null ? found.getBreakEnd().toString() : null);
+                    dto.setBreakStart(
+                            found.getBreakStart() != null ? found.getBreakStart().toString() : null
+                    );
+                    dto.setBreakEnd(
+                            found.getBreakEnd() != null ? found.getBreakEnd().toString() : null
+                    );
                 }
             }
 
@@ -84,8 +89,6 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         return result;
     }
 
-
-
     @Override
     @Transactional
     public void saveMyWeeklySchedule(String username, DoctorWeeklyScheduleDto weeklyDto) {
@@ -94,19 +97,20 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         DoctorProfile profile = doctorProfileRepository.findByUser(doctor)
                 .orElseThrow(() -> new IllegalStateException("El usuario no tiene perfil de doctor configurado."));
 
-        // 👇 Aquí usamos primaryRoom, NO mainRoom
         ClinicRoom primaryRoom = profile.getPrimaryRoom();
         if (primaryRoom == null) {
             throw new IllegalStateException("El perfil del doctor no tiene consultorio principal (primaryRoom) asignado.");
         }
 
-        // Borramos horario anterior y lo reemplazamos
-        doctorScheduleRepository.deleteByDoctorId(doctor.getId());
+        // 1) Borramos horarios anteriores de ese doctor
+        doctorScheduleRepository.deleteAllByDoctorId(doctor.getId());
 
+        // 2) Si no hay nada que guardar, salimos
         if (weeklyDto == null || weeklyDto.getDays() == null) {
             return;
         }
 
+        // 3) Insertamos según lo que viene del formulario
         for (DoctorDayScheduleDto dto : weeklyDto.getDays()) {
             if (!dto.isWorking()) {
                 continue; // no atiende ese día
@@ -133,5 +137,12 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
             doctorScheduleRepository.save(s);
         }
+    }
+
+    @Override
+    @Transactional
+    public boolean hasAnySchedule(String username) {
+        User doctor = getDoctorUserOrThrow(username);
+        return doctorScheduleRepository.existsByDoctorId(doctor.getId());
     }
 }

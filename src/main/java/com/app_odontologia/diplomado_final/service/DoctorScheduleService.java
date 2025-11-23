@@ -8,4 +8,7 @@ public interface DoctorScheduleService {
     DoctorWeeklyScheduleDto getMyWeeklySchedule(String username);
 
     void saveMyWeeklySchedule(String username, DoctorWeeklyScheduleDto weeklyDto);
+
+
+    boolean hasAnySchedule(String username);
 }

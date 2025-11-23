@@ -28,7 +28,6 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
-
 @RequiredArgsConstructor
 @Transactional
 public class UserServiceImpl implements UserService, UserDetailsService {
@@ -96,11 +95,9 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             user.getRoles().add(role);
         }
 
-        // ⭐ IMPORTANTE:
-        // Este método solo crea al usuario base. La decisión de si debe completar
-        // el perfil de doctor se toma en RegistrationServiceImpl.approve(...)
-        // cuando sabemos si marcó "soy dentista" y qué rol tendrá.
-        user.setMustCompleteProfile(false);
+        // ⭐ AQUÍ EL CAMBIO: usar directamente isDentist()
+        boolean isDentist = rr.isDentist();
+        user.setMustCompleteProfile(isDentist);
 
         return userRepo.save(user);
     }
@@ -164,8 +161,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             user.getRoles().add(role);
         }
 
-        // ⭐ REGLA: usuarios de staff (aunque sean ROLE_DENTIST)
-        // NO usan el wizard de "completar perfil de doctor".
+        // ⭐ Usuarios de staff NO usan wizard de completar perfil.
         user.setMustCompleteProfile(false);
 
         // createdBy opcional
@@ -323,7 +319,7 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         // roles como antes
         dto.setRoles(
                 u.getRoles().stream()
-                        .map(r -> r.getName())
+                        .map(Role::getName)
                         .toList()
         );
 
@@ -354,6 +350,4 @@ public class UserServiceImpl implements UserService, UserDetailsService {
 
         return dto;
     }
-
-
 }

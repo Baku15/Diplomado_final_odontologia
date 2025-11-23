@@ -9,6 +9,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/doctor")
 public class DoctorScheduleController {
@@ -41,5 +43,13 @@ public class DoctorScheduleController {
         String username = authentication.getName();
         doctorScheduleService.saveMyWeeklySchedule(username, weeklyDto);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me/schedule/status")
+    @PreAuthorize("hasAnyAuthority('ROLE_DENTIST','ROLE_CLINIC_ADMIN')")
+    public ResponseEntity<Map<String, Boolean>> getMyScheduleStatus(Authentication authentication) {
+        String username = authentication.getName();
+        boolean hasSchedule = doctorScheduleService.hasAnySchedule(username);
+        return ResponseEntity.ok(Map.of("hasSchedule", hasSchedule));
     }
 }

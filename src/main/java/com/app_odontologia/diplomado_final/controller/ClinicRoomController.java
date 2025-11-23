@@ -10,7 +10,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/clinic/{clinicId}/rooms")
@@ -20,15 +19,19 @@ public class ClinicRoomController {
 
     /**
      * Lista todos los consultorios ACTIVOS de la clínica.
+     * Accesible para:
+     *  - ROLE_CLINIC_ADMIN
+     *  - ROLE_DENTIST
      */
     @GetMapping
-    @PreAuthorize("hasAuthority('ROLE_CLINIC_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_CLINIC_ADMIN', 'ROLE_DENTIST')")
     public List<ClinicRoomDto> list(@PathVariable Long clinicId) {
         return clinicRoomService.listActiveByClinic(clinicId);
     }
 
     /**
      * Crea un nuevo consultorio para la clínica.
+     * Solo admin de clínica.
      */
     @PostMapping
     @PreAuthorize("hasAuthority('ROLE_CLINIC_ADMIN')")
@@ -42,6 +45,7 @@ public class ClinicRoomController {
 
     /**
      * Actualiza los datos de un consultorio existente.
+     * Solo admin de clínica.
      */
     @PutMapping("/{roomId}")
     @PreAuthorize("hasAuthority('ROLE_CLINIC_ADMIN')")
@@ -55,7 +59,7 @@ public class ClinicRoomController {
 
     /**
      * Desactiva un consultorio (active = false).
-     * No se borra físicamente.
+     * Solo admin de clínica.
      */
     @DeleteMapping("/{roomId}")
     @PreAuthorize("hasAuthority('ROLE_CLINIC_ADMIN')")
@@ -67,3 +71,4 @@ public class ClinicRoomController {
         clinicRoomService.deactivate(clinicId, roomId);
     }
 }
+
