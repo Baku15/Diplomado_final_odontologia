@@ -1,7 +1,7 @@
 // src/main/java/com/app_odontologia/diplomado_final/controller/DoctorScheduleController.java
 package com.app_odontologia.diplomado_final.controller;
 
-import com.app_odontologia.diplomado_final.dto.DoctorWeeklyScheduleDto;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorWeeklyScheduleDto;
 import com.app_odontologia.diplomado_final.service.DoctorScheduleService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;

@@ -10,6 +10,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     org.springframework.data.domain.Page<com.app_odontologia.diplomado_final.model.entity.User> findByClinic_Id(Long clinicId, org.springframework.data.domain.Pageable pageable);
+
     boolean existsByEmailIgnoreCase(String email);
 
+    // <-- añadido: existencia de username (usado para evitar colisiones al crear user)
+    boolean existsByUsername(String username);
 }

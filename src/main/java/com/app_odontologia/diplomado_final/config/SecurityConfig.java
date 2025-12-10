@@ -1,34 +1,24 @@
 package com.app_odontologia.diplomado_final.config;
 
 import jakarta.servlet.http.HttpServletResponse;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
-
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import org.springframework.core.convert.converter.Converter;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,12 +42,11 @@ public class SecurityConfig {
             Collection<GrantedAuthority> auths = new ArrayList<>();
             if (roles != null) {
                 for (String r : roles) {
-                    // Añadimos prefijo ROLE_ aquí
                     String roleName = r.startsWith("ROLE_") ? r : "ROLE_" + r;
                     auths.add(new SimpleGrantedAuthority(roleName));
                 }
             }
-            return auths; // <- Tipo es Collection<GrantedAuthority>
+            return auths;
         };
     }
 
@@ -90,10 +79,13 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // 🔹 TODOS los endpoints públicos bajo /api/public/** (incluye doctor-invitations)
+                        // 🔓 ENDPOINT DE FOTO PÚBLICO (para que <img> funcione sin token)
+                        .requestMatchers(HttpMethod.GET, "/api/clinic/*/patients/*/photo").permitAll()
+
+                        // 🔹 TODOS los endpoints públicos bajo /api/public/**
                         .requestMatchers("/api/public/**").permitAll()
 
-                        // 🔐 ACTIVACIÓN: también pública (si quieres podrías quitarla porque ya entra en /api/public/** si la mueves allí)
+                        // 🔐 ACTIVACIÓN
                         .requestMatchers(HttpMethod.POST, "/api/auth/activate/**").permitAll()
 
                         // Admin protegido por rol
@@ -118,7 +110,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-
     @Bean
     @Order(99)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -132,8 +123,6 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-
 
     // CORS para Angular en dev
     @Bean

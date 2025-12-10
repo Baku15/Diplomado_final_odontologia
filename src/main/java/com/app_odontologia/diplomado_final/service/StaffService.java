@@ -1,6 +1,7 @@
 package com.app_odontologia.diplomado_final.service;
 
 import com.app_odontologia.diplomado_final.dto.*;
+import com.app_odontologia.diplomado_final.dto.doctor.*;
 import com.app_odontologia.diplomado_final.model.entity.User;
 
 public interface StaffService {

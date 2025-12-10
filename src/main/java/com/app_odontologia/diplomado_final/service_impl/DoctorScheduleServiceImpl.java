@@ -1,8 +1,8 @@
 // src/main/java/com/app_odontologia/diplomado_final/service_impl/DoctorScheduleServiceImpl.java
 package com.app_odontologia.diplomado_final.service_impl;
 
-import com.app_odontologia.diplomado_final.dto.DoctorDayScheduleDto;
-import com.app_odontologia.diplomado_final.dto.DoctorWeeklyScheduleDto;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorDayScheduleDto;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorWeeklyScheduleDto;
 import com.app_odontologia.diplomado_final.model.entity.ClinicRoom;
 import com.app_odontologia.diplomado_final.model.entity.DoctorProfile;
 import com.app_odontologia.diplomado_final.model.entity.DoctorSchedule;

@@ -1,7 +1,7 @@
 // src/main/java/com/app_odontologia/diplomado_final/service/DoctorScheduleService.java
 package com.app_odontologia.diplomado_final.service;
 
-import com.app_odontologia.diplomado_final.dto.DoctorWeeklyScheduleDto;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorWeeklyScheduleDto;
 
 public interface DoctorScheduleService {
 

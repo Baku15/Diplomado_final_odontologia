@@ -1,6 +1,6 @@
 package com.app_odontologia.diplomado_final.controller;
 
-import com.app_odontologia.diplomado_final.dto.DoctorInvitationDto;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorInvitationDto;
 import com.app_odontologia.diplomado_final.service.StaffService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

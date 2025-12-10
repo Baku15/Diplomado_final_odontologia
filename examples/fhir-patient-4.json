@@ -1,0 +1,46 @@
+{
+  "resourceType": "Patient",
+  "id": "4",
+  "identifier": [
+    {
+      "system": "urn:local:document",
+      "value": "1123456789",
+      "type": {
+        "text": "CI"
+      }
+    }
+  ],
+  "name": [
+    {
+      "family": "Perez",
+      "given": ["Juan"]
+    }
+  ],
+  "telecom": [
+    { "system": "phone", "value": "+59171234567", "use": "mobile" },
+    { "system": "email", "value": "juan@example.com", "use": "home" }
+  ],
+  "gender": "male",
+  "birthDate": "1985-06-15",
+  "address": [
+    {
+      "line": ["Av. Siempre Viva 123"],
+      "city": "La Paz",
+      "district": "Zona Centro"
+    }
+  ],
+  "managingOrganization": {
+    "reference": "Organization/1",
+    "display": "Clinica 1"
+  },
+  "extension": [
+    {
+      "url": "http://example.org/fhir/StructureDefinition/allowEmailReminders",
+      "valueBoolean": true
+    },
+    {
+      "url": "http://example.org/fhir/StructureDefinition/allowWhatsappReminders",
+      "valueBoolean": true
+    }
+  ]
+}

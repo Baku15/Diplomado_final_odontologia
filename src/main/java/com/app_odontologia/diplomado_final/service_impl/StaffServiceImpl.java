@@ -1,6 +1,7 @@
 package com.app_odontologia.diplomado_final.service_impl;
 
 import com.app_odontologia.diplomado_final.dto.*;
+import com.app_odontologia.diplomado_final.dto.doctor.*;
 import com.app_odontologia.diplomado_final.model.entity.*;
 import com.app_odontologia.diplomado_final.model.enums.InvitationStatus;
 import com.app_odontologia.diplomado_final.model.enums.UserStatus;
@@ -10,15 +11,14 @@ import com.app_odontologia.diplomado_final.service.ActivationService;
 import com.app_odontologia.diplomado_final.service.MailService;
 import com.app_odontologia.diplomado_final.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -199,9 +199,9 @@ public class StaffServiceImpl implements StaffService {
         var inv = doctorInvitationRepository.findByToken(token)
                 .orElseThrow(() -> new IllegalArgumentException("Invitación no encontrada."));
 
-        // si quieres, aquí mismo puedes validar expiración / estado
         if (inv.getStatus() != InvitationStatus.PENDING) {
-            throw new IllegalStateException("La invitación ya fue utilizada o no está disponible.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "La invitación no está en estado PENDING (actual: " + inv.getStatus() + ").");
         }
 
         if (inv.getExpiresAt() != null &&

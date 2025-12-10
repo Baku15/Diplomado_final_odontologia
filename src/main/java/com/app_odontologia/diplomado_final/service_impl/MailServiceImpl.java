@@ -11,13 +11,11 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-
 public class MailServiceImpl implements MailService {
     private final JavaMailSender mailSender;
 
     @Override
     public void sendCredentialsEmail(String to, String username, String tempPassword) {
-        // 🔸 No lo usas en la opción B, pero lo dejamos funcional por compatibilidad.
         try {
             var mime = mailSender.createMimeMessage();
             var helper = new MimeMessageHelper(mime, "UTF-8");
@@ -34,6 +32,7 @@ public class MailServiceImpl implements MailService {
           <p>Por seguridad, cambia la contraseña en tu primer inicio de sesión.</p>
         </div>
       """.formatted(username, tempPassword), true);
+            helper.setFrom("no-reply@tu-dominio.com");
             mailSender.send(mime);
             log.info("Correo de credenciales temporales enviado a {}", to);
         } catch (Exception e) {
@@ -58,6 +57,7 @@ public class MailServiceImpl implements MailService {
     """.formatted(activationLink, activationLink), true);
             helper.setFrom("no-reply@tu-dominio.com");
             mailSender.send(mime);
+            log.info("Correo de activación enviado a {}", to);
         } catch (Exception e) {
             throw new IllegalStateException("Error enviando correo de activación: " + e.getMessage(), e);
         }
@@ -75,7 +75,6 @@ public class MailServiceImpl implements MailService {
                 doctorName = "Doctor(a)";
             }
 
-            // Nombre de la clínica
             String clinicName = null;
             if (invitation.getClinic() != null) {
                 clinicName = invitation.getClinic().getNombreComercial();
@@ -86,7 +85,6 @@ public class MailServiceImpl implements MailService {
                 clinicName = "Clínica odontológica";
             }
 
-            // TODO: si quieres, saca esta base URL a application.properties
             String frontendBaseUrl = "http://localhost:4200";
             String invitationLink = frontendBaseUrl + "/invitacion-doctor/" + invitation.getToken();
 
@@ -139,4 +137,28 @@ public class MailServiceImpl implements MailService {
         }
     }
 
+    // ---------- NUEVO: plantilla específica para activación de paciente ----------
+    @Override
+    public void sendPatientActivationEmail(String to, String activationLink) {
+        try {
+            var mime = mailSender.createMimeMessage();
+            var helper = new MimeMessageHelper(mime, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject("Activa tu cuenta en la clínica - Acceso al portal de pacientes");
+            helper.setText("""
+      <div style="font-family:Arial,sans-serif;">
+        <h2>Bienvenido</h2>
+        <p>Hemos creado una cuenta para ti en el portal de la clínica. Para activar tu cuenta y definir una contraseña segura, haz clic en el siguiente enlace:</p>
+        <p><a href="%s">%s</a></p>
+        <p style="font-size:13px; color:#6b7280;">Este enlace expira en unas horas. Si no solicitaste este acceso, ignora este correo o comunícate con la clínica.</p>
+        <p style="margin-top:12px; font-size:13px; color:#4b5563;">Saludos,<br/>Administración – Tu clínica</p>
+      </div>
+    """.formatted(activationLink, activationLink), true);
+            helper.setFrom("no-reply@tu-dominio.com");
+            mailSender.send(mime);
+            log.info("Correo de activación de paciente enviado a {}", to);
+        } catch (Exception e) {
+            throw new IllegalStateException("Error enviando correo de activación de paciente: " + e.getMessage(), e);
+        }
+    }
 }

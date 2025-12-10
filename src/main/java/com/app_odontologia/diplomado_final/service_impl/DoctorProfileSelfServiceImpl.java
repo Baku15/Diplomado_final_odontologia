@@ -1,6 +1,6 @@
 package com.app_odontologia.diplomado_final.service_impl;
 
-import com.app_odontologia.diplomado_final.dto.DoctorProfileMeDto;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorProfileMeDto;
 import com.app_odontologia.diplomado_final.model.entity.ClinicRoom;
 import com.app_odontologia.diplomado_final.model.entity.DoctorProfile;
 import com.app_odontologia.diplomado_final.model.entity.User;

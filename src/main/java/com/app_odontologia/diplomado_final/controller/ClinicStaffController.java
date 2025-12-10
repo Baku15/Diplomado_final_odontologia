@@ -1,7 +1,8 @@
 package com.app_odontologia.diplomado_final.controller;
 
-import com.app_odontologia.diplomado_final.context.ClinicContext;
 import com.app_odontologia.diplomado_final.dto.*;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorInvitationDto;
+import com.app_odontologia.diplomado_final.dto.doctor.InviteDoctorRequestDto;
 import com.app_odontologia.diplomado_final.model.entity.User;
 import com.app_odontologia.diplomado_final.service.StaffService;
 import com.app_odontologia.diplomado_final.service.UserService;
@@ -13,7 +14,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
