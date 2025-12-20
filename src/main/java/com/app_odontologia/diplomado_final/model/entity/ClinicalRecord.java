@@ -92,6 +92,12 @@ public class ClinicalRecord {
     @Column(name = "mh_risk_behaviors", length = 2000)
     private String riskBehaviors;
 
+    @Column(name = "periodontal_status", length = 100)
+    private String periodontalStatus;
+
+    @Column(name = "caries_risk", length = 50)
+    private String cariesRisk;
+
     // ===== Antecedentes médicos generales =====
 
     @Embedded

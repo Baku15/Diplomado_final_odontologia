@@ -28,6 +28,9 @@ public class Clinic {
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "default_appointment_duration_minutes", nullable = false)
+    private Integer defaultAppointmentDurationMinutes = 30;
+
     /**
      * Consultorios / salas de esta clínica.
      * No pongo cascade = ALL a lo bestia, pero sí ALL+orphanRemoval = true
@@ -39,4 +42,6 @@ public class Clinic {
             orphanRemoval = true
     )
     private Set<ClinicRoom> rooms = new HashSet<>();
+
+
 }

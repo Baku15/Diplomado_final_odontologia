@@ -23,30 +23,39 @@ public class ClinicalRecordMapper {
                 .openingDate(cr.getOpeningDate())
                 .firstVisitDate(cr.getFirstVisitDate())
                 .status(cr.getStatus() != null ? cr.getStatus().name() : null)
+
                 .chiefComplaint(cr.getChiefComplaint())
                 .currentIllness(cr.getCurrentIllness())
 
-                // 🎯 NUEVOS CAMPOS
+                // ===== campos planos =====
                 .allergies(cr.getAllergies())
                 .medications(cr.getMedications())
                 .systemicConditions(cr.getSystemicConditions())
                 .pregnancyStatus(cr.getPregnancyStatus())
                 .riskBehaviors(cr.getRiskBehaviors())
 
+                // 👉👉 FALTABAN ESTOS DOS 👈👈
+
+                .periodontalStatus(cr.getPeriodontalStatus())
+                .cariesRisk(cr.getCariesRisk())
+
+                // ===== embeddables =====
                 .medicalHistory(toMedicalHistoryDto(cr.getMedicalHistory()))
                 .dentalHistory(toDentalHistoryDto(cr.getDentalHistory()))
                 .vitalSigns(toVitalSignsDto(cr.getVitalSigns()))
                 .extraoralExam(toExtraoralExamDto(cr.getExtraoralExam()))
                 .intraoralExam(toIntraoralExamDto(cr.getIntraoralExam()))
+
                 .initialDiagnosticSummary(cr.getInitialDiagnosticSummary())
                 .initialTreatmentPlanSummary(cr.getInitialTreatmentPlanSummary())
                 .initialPrognosis(cr.getInitialPrognosis())
+
                 .createdAt(cr.getCreatedAt())
                 .updatedAt(cr.getUpdatedAt())
                 .build();
     }
 
-    private static MedicalHistoryDto toMedicalHistoryDto(MedicalHistoryEmbeddable m) {
+        private static MedicalHistoryDto toMedicalHistoryDto(MedicalHistoryEmbeddable m) {
         if (m == null) return null;
         return MedicalHistoryDto.builder()
                 .hasDiabetes(m.getHasDiabetes())
@@ -126,6 +135,7 @@ public class ClinicalRecordMapper {
                 .tongueFindings(i.getTongueFindings())
                 .palateFindings(i.getPalateFindings())
                 .floorOfMouthFindings(i.getFloorOfMouthFindings())
+
                 .occlusionNotes(i.getOcclusionNotes())
                 .otherFindings(i.getOtherFindings())
                 .build();

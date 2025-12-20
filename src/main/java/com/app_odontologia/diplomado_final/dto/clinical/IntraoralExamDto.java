@@ -22,18 +22,13 @@ public class IntraoralExamDto {
     private String floorOfMouthFindings;
     private String occlusionNotes;
 
+    private String periodontalStatus;
+    private String cariesRisk;
+
     // 👉 Usaremos este campo para el textarea "Examen intraoral"
     private String otherFindings;
 
     // ====== Soporte para JSON como String ======
 
-    @JsonCreator
-    public IntraoralExamDto(String otherFindings) {
-        this.otherFindings = otherFindings;
-    }
 
-    @JsonValue
-    public String asJson() {
-        return this.otherFindings;
-    }
 }

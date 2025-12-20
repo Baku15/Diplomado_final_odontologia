@@ -28,6 +28,11 @@ import java.util.List;
 @Builder
 public class Patient {
 
+    public enum RiskLevel {
+        NORMAL,
+        WARNING,
+        BLOCKED
+    }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -121,6 +126,25 @@ public class Patient {
     @Column(name = "allow_whatsapp_reminders")
     @ColumnDefault("false")
     private Boolean allowWhatsappReminders;
+    // ===== Métricas de comportamiento =====
+    @Column(name = "total_no_shows")
+    @ColumnDefault("0")
+    private Integer totalNoShows = 0;
+
+    @Column(name = "total_cancellations")
+    @ColumnDefault("0")
+    private Integer totalCancellations = 0;
+
+    @Column(name = "consecutive_no_shows")
+    @ColumnDefault("0")
+    private Integer consecutiveNoShows = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "risk_level", length = 20)
+    private RiskLevel riskLevel = RiskLevel.NORMAL;
+
+    @Column(name = "last_no_show_at")
+    private Instant lastNoShowAt;
 
     // --- Estado lógico ---
     @Column(name = "active")

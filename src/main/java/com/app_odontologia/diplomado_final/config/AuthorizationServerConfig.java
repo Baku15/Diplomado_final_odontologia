@@ -168,25 +168,42 @@ public class AuthorizationServerConfig {
 
             var claims = context.getClaims();
 
-            // Roles sin prefijo
+            // Normalizar roles: quitar prefijo ROLE_ si existe
             var roles = auth.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .map(a -> a.replaceFirst("^ROLE_", ""))
+                    .distinct()
                     .collect(Collectors.toList());
 
             claims.claim("roles", roles);
             claims.claim("username", auth.getName());
 
-            // Obtener usuario real
-            userRepo.findByUsername(auth.getName()).ifPresent(u -> {
-                claims.claim("user_id", u.getId());
+            // Sólo intentamos buscar usuario si el principal parece una cuenta de persona
+            // (no client_credentials). En client_credentials el nombre será el client_id.
+            String principalName = auth.getName();
+            if (principalName != null && !principalName.isBlank()) {
+                try {
+                    userRepo.findByUsername(principalName).ifPresent(u -> {
+                        // Aseguramos tipos primitivos/compatibles en los claims
+                        if (u.getId() != null) {
+                            claims.claim("user_id", u.getId());
+                        }
+                        if (u.getClinic() != null && u.getClinic().getId() != null) {
+                            claims.claim("clinic_id", u.getClinic().getId());
+                        }
+                        if (u.getMustCompleteProfile() != null) {
+                            claims.claim("mustCompleteProfile", u.getMustCompleteProfile());
+                        }
+                    });
+                } catch (Exception ex) {
+                    // No lanzamos: si algo falla al consultar DB, dejamos emitir token sin esos claims
+                    // (pero lo logueamos para debugging en desarrollo)
+                    System.err.println("Warning: no se pudo añadir claims adicionales al token: " + ex.getMessage());
+                }
+            }
 
-                if (u.getClinic() != null && u.getClinic().getId() != null)
-                    claims.claim("clinic_id", u.getClinic().getId());
-
-                if (u.getMustCompleteProfile() != null)
-                    claims.claim("mustCompleteProfile", u.getMustCompleteProfile());
-            });
+            // Nota: JwtEncodingContext se utiliza para id_token y access_token.
+            // Añadir claims aquí los incluirá en ambos tipos cuando aplique.
         };
     }
 }

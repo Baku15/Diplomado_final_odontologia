@@ -22,7 +22,6 @@ public class ClinicalRecordUpsertRequest {
 
     private String chiefComplaint;
     private String currentIllness;
-
     private String allergies;          // textarea "Alergias"
     private String medications;        // textarea "Medicación actual"
     private String systemicConditions; // textarea "Enfermedades sistémicas"
@@ -38,4 +37,7 @@ public class ClinicalRecordUpsertRequest {
     private String initialDiagnosticSummary;
     private String initialTreatmentPlanSummary;
     private String initialPrognosis;
+
+    private String periodontalStatus;
+    private String cariesRisk;
 }

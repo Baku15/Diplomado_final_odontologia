@@ -3,10 +3,12 @@ package com.app_odontologia.diplomado_final.service_impl;
 
 import com.app_odontologia.diplomado_final.dto.CheckDuplicateRequest;
 import com.app_odontologia.diplomado_final.dto.CheckDuplicateResponse;
+import com.app_odontologia.diplomado_final.dto.PatientDeletionErrorDto;
 import com.app_odontologia.diplomado_final.dto.patient.PatientCreateRequest;
 import com.app_odontologia.diplomado_final.dto.patient.PatientDetailDto;
 import com.app_odontologia.diplomado_final.dto.patient.PatientSummaryDto;
 import com.app_odontologia.diplomado_final.dto.patient.PatientUpdateRequest;
+import com.app_odontologia.diplomado_final.exception.PatientDeletionBlockedException;
 import com.app_odontologia.diplomado_final.mapper.PatientMapper;
 import com.app_odontologia.diplomado_final.model.entity.Clinic;
 import com.app_odontologia.diplomado_final.model.entity.Patient;
@@ -15,10 +17,7 @@ import com.app_odontologia.diplomado_final.model.entity.Patient.IdentifierEmbedd
 import com.app_odontologia.diplomado_final.model.entity.Patient.TelecomEmbeddable;
 import com.app_odontologia.diplomado_final.model.entity.Role;
 import com.app_odontologia.diplomado_final.model.entity.User;
-import com.app_odontologia.diplomado_final.repository.ClinicRepository;
-import com.app_odontologia.diplomado_final.repository.PatientRepository;
-import com.app_odontologia.diplomado_final.repository.RoleRepository;
-import com.app_odontologia.diplomado_final.repository.UserRepository;
+import com.app_odontologia.diplomado_final.repository.*;
 import com.app_odontologia.diplomado_final.service.PatientService;
 import com.app_odontologia.diplomado_final.service.ActivationService;
 import com.app_odontologia.diplomado_final.service.MailService;
@@ -44,6 +43,8 @@ public class PatientServiceImpl implements PatientService {
     private final PasswordEncoder passwordEncoder;
     private final ActivationService activationService;
     private final MailService mailService;
+    private final ClinicalConsultationRepository clinicalConsultationRepository;
+
 
     public PatientServiceImpl(PatientRepository patientRepository,
                               ClinicRepository clinicRepository,
@@ -51,7 +52,8 @@ public class PatientServiceImpl implements PatientService {
                               RoleRepository roleRepository,
                               PasswordEncoder passwordEncoder,
                               ActivationService activationService,
-                              MailService mailService) {
+                              MailService mailService,
+                              ClinicalConsultationRepository clinicalConsultationRepository) {
         this.patientRepository = patientRepository;
         this.clinicRepository = clinicRepository;
         this.userRepository = userRepository;
@@ -59,6 +61,8 @@ public class PatientServiceImpl implements PatientService {
         this.passwordEncoder = passwordEncoder;
         this.activationService = activationService;
         this.mailService = mailService;
+        this.clinicalConsultationRepository = clinicalConsultationRepository;
+
     }
 
     // delegador: mantiene compatibilidad con llamadas antiguas
@@ -623,11 +627,40 @@ public class PatientServiceImpl implements PatientService {
 
     @Override
     public void deletePatient(Long clinicId, Long patientId) {
+
         Patient patient = patientRepository
                 .findByIdAndClinicId(patientId, clinicId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Paciente no encontrado"));
 
-        patientRepository.delete(patient);
+        // 🧠 VALIDACIÓN CLÍNICA CRÍTICA
+        var openConsultations =
+                clinicalConsultationRepository.findOpenConsultations(patientId);
+
+        if (!openConsultations.isEmpty()) {
+
+            var blocking = openConsultations.stream()
+                    .map(c -> new PatientDeletionErrorDto.BlockingConsultation(
+                            c.getId(),
+                            c.getStatus().name(),
+                            c.getStartedAt() != null ? c.getStartedAt().toString() : null
+                    ))
+                    .toList();
+
+            PatientDeletionErrorDto errorDto =
+                    new PatientDeletionErrorDto(
+                            "No se puede eliminar el paciente porque tiene consultas activas o tratamientos en curso.",
+                            blocking
+                    );
+
+            throw new PatientDeletionBlockedException(errorDto);
+        }
+
+
+        // 🛡️ BAJA LÓGICA (soft delete)
+        patient.setActive(false);
+        patientRepository.save(patient);
     }
+
+
 }

@@ -1,0 +1,92 @@
+package com.app_odontologia.diplomado_final.controller;
+
+import com.app_odontologia.diplomado_final.dto.appointment.*;
+import com.app_odontologia.diplomado_final.service.AppointmentService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/clinic/{clinicId}/patients/{patientId}/appointments")
+@RequiredArgsConstructor
+public class AppointmentController {
+
+    private final AppointmentService appointmentService;
+
+    @PostMapping
+    public ResponseEntity<AppointmentDto> create(
+            @PathVariable Long clinicId,
+            @PathVariable Long patientId,
+            @RequestParam Long doctorId,
+            @RequestBody CreateAppointmentRequest request
+    ) {
+        return ResponseEntity.ok(
+                appointmentService.createAppointment(
+                        clinicId,
+                        patientId,
+                        doctorId,
+                        request
+                )
+        );
+    }
+
+    @GetMapping("/doctor/{doctorId}")
+    public ResponseEntity<List<AppointmentDto>> agenda(
+            @PathVariable Long doctorId,
+            @RequestParam LocalDate date
+    ) {
+        return ResponseEntity.ok(
+                appointmentService.listDoctorAgenda(doctorId, date)
+        );
+    }
+
+    // 🔥 NUEVO: cancelar cita
+    @PostMapping("/{appointmentId}/cancel")
+    public ResponseEntity<AppointmentDto> cancel(
+            @PathVariable Long appointmentId
+    ) {
+        return ResponseEntity.ok(
+                appointmentService.cancelAppointment(appointmentId)
+        );
+    }
+
+    // 🔥 NUEVO: marcar no asistencia
+    @PostMapping("/{appointmentId}/no-show")
+    public ResponseEntity<AppointmentDto> noShow(
+            @PathVariable Long appointmentId
+    ) {
+        return ResponseEntity.ok(
+                appointmentService.markNoShow(appointmentId)
+        );
+    }
+
+    @PostMapping("/{appointmentId}/confirm")
+    public ResponseEntity<AppointmentDto> confirm(@PathVariable Long appointmentId) {
+        return ResponseEntity.ok(
+                appointmentService.confirmAttendance(appointmentId)
+        );
+    }
+
+    @PostMapping("/{appointmentId}/cancel-late")
+    public ResponseEntity<AppointmentDto> cancelLate(
+            @PathVariable Long appointmentId,
+            @RequestParam boolean accepted
+    ) {
+        return ResponseEntity.ok(
+                appointmentService.cancelLate(appointmentId, accepted)
+        );
+    }
+
+    @PostMapping("/{appointmentId}/complete")
+    public ResponseEntity<AppointmentDto> complete(
+            @PathVariable Long appointmentId
+    ) {
+        return ResponseEntity.ok(
+                appointmentService.completeAppointment(appointmentId)
+        );
+    }
+
+}

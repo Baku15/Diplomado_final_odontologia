@@ -1,6 +1,7 @@
 package com.app_odontologia.diplomado_final.exception;
 
 import com.app_odontologia.diplomado_final.dto.ApiResponse;
+import com.app_odontologia.diplomado_final.dto.PatientDeletionErrorDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,4 +28,21 @@ public class GlobalExceptionHandler {
         ApiResponse body = new ApiResponse(ex.getMessage(), false);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
+
+    @ExceptionHandler(PatientDeletionBlockedException.class)
+    public ResponseEntity<?> handlePatientDeletionBlocked(PatientDeletionBlockedException ex) {
+
+        PatientDeletionErrorDto payload = ex.getPayload();
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        Map.of(
+                                "ok", false,
+                                "message", payload.getMessage(),
+                                "blockingConsultations", payload.getBlockingConsultations()
+                        )
+                );
+    }
+
 }
