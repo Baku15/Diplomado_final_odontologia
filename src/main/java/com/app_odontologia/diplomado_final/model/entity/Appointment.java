@@ -49,9 +49,10 @@ public class Appointment {
     @JoinColumn(name = "clinic_id", nullable = false)
     private Clinic clinic;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "patient_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "patient_id")
     private Patient patient;
+
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "doctor_id", nullable = false)
@@ -132,4 +133,9 @@ public class Appointment {
     @Enumerated(EnumType.STRING)
     @Column(name = "origin", nullable = false, length = 20)
     private AppointmentOrigin origin = AppointmentOrigin.DIRECT;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+
 }

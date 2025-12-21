@@ -37,5 +37,10 @@ public interface ClinicalConsultationService {
             boolean hasClinicalChanges
     );
 
+    ClinicalConsultationDto startFromAppointment(
+            Long appointmentId,
+            String dentistUsername
+    );
+
 
 }

@@ -13,7 +13,6 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
     List<Appointment> findByDoctorIdAndDate(Long doctorId, LocalDate date);
 
-    List<Appointment> findByClinicIdAndDate(Long clinicId, LocalDate date);
 
     boolean existsByDoctorIdAndDateAndStartTimeLessThanAndEndTimeGreaterThanAndStatusIn(
             Long doctorId,
@@ -33,7 +32,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     );
 
     // 🔥 NUEVO (limpio): buscar cita asociada a una consulta
-    Optional<Appointment> findByConsultationId(Long consultationId);
+    List<Appointment> findAllByConsultationId(Long consultationId);
 
     long countByClinicId(Long clinicId);
 
@@ -41,4 +40,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             Long clinicId,
             Appointment.AppointmentStatus status
     );
+
+    boolean existsByDoctorIdAndDateAndStartTimeLessThanAndEndTimeGreaterThanAndStatusInAndIdNot(
+            Long doctorId,
+            LocalDate date,
+            LocalTime endTime,
+            LocalTime startTime,
+            List<AppointmentStatus> statuses,
+            Long excludeId
+    );
+
 }

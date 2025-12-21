@@ -2,6 +2,7 @@ package com.app_odontologia.diplomado_final.service;
 
 import com.app_odontologia.diplomado_final.dto.appointment.AppointmentDto;
 import com.app_odontologia.diplomado_final.dto.appointment.CreateAppointmentRequest;
+import com.app_odontologia.diplomado_final.dto.appointment.UpdateAppointmentRequest;
 import com.app_odontologia.diplomado_final.model.entity.Appointment;
 
 import java.time.LocalDate;
@@ -37,5 +38,24 @@ public interface AppointmentService {
     AppointmentDto markSpecialCase(Long appointmentId, String note);
 
     AppointmentDto completeAppointment(Long appointmentId);
+
+    AppointmentDto createDirectAppointment(
+            Long clinicId,
+            Long doctorId,
+            CreateAppointmentRequest request
+    );
+
+    AppointmentDto updateAppointment(
+            Long appointmentId,
+            UpdateAppointmentRequest request
+    );
+
+    AppointmentDto completeDirectAppointment(Long appointmentId);
+    void completeDirectAppointment(
+            Long clinicId,
+            Long appointmentId,
+            String dentistUsername
+    );
+
 
 }

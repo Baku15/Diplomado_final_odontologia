@@ -5,13 +5,14 @@ import com.app_odontologia.diplomado_final.model.entity.Appointment;
 
 public class AppointmentMapper {
 
-    private AppointmentMapper() {}
+    private AppointmentMapper() {
+    }
 
     public static AppointmentDto toDto(Appointment a) {
         return AppointmentDto.builder()
                 .id(a.getId())
                 .clinicId(a.getClinic().getId())
-                .patientId(a.getPatient().getId())
+                .patientId(a.getPatient() != null ? a.getPatient().getId() : null)
                 .doctorId(a.getDoctor().getId())
                 .doctorName(
                         a.getDoctor().getNombres() + " " + a.getDoctor().getApellidos()
@@ -25,6 +26,14 @@ public class AppointmentMapper {
                 .sendWhatsapp(a.getSendWhatsapp())
                 .sendEmail(a.getSendEmail())
                 .reminderMinutesBefore(a.getReminderMinutesBefore())
+
+                // 🔥 NUEVO
+                .consultationId(
+                        a.getConsultation() != null ? a.getConsultation().getId() : null
+                )
+                .origin(a.getOrigin().name())
+                .specialCase(a.getSpecialCase())
+
                 .build();
     }
 }

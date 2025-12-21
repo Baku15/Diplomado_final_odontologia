@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -67,10 +67,8 @@ public class ClinicalConsultationServiceImpl implements ClinicalConsultationServ
                 );
             }
 
-            // Si ya está ACTIVE, solo devolver
             return ClinicalConsultationMapper.toDto(consultation);
         }
-
 
         Clinic clinic = clinicRepository.findById(clinicId)
                 .orElseThrow(() -> new IllegalArgumentException("Clínica no encontrada"));
@@ -105,7 +103,6 @@ public class ClinicalConsultationServiceImpl implements ClinicalConsultationServ
         );
     }
 
-
     // ============================
     // CERRAR / CONTINUAR CONSULTA
     // ============================
@@ -124,24 +121,31 @@ public class ClinicalConsultationServiceImpl implements ClinicalConsultationServ
             return ClinicalConsultationMapper.toDto(c);
         }
 
-
+        boolean requireNext =
+                Boolean.TRUE.equals(request.getRequireNextAppointment());
 
         // =====================================================
         // CASO A: TRATAMIENTO FINALIZADO (CLOSED)
         // =====================================================
-        boolean requireNext =
-                Boolean.TRUE.equals(request.getRequireNextAppointment());
-
         if (!requireNext) {
+
             c.setClinicalNotes(request.getClinicalNotes());
             c.setSummary(request.getSummary());
             c.setEndedAt(Instant.now());
             c.setStatus(ConsultationStatus.CLOSED);
 
-            // Marcar cita asociada como COMPLETED (si existe)
-            appointmentRepository
-                    .findByConsultationId(c.getId())
-                    .ifPresent(a -> a.setStatus(AppointmentStatus.COMPLETED));
+            // 🔥 CORRECCIÓN CLAVE:
+            // una consulta puede tener MÚLTIPLES citas
+            List<Appointment> appointments =
+                    appointmentRepository.findAllByConsultationId(c.getId());
+
+            appointments.stream()
+                    .filter(a -> a.getStatus() == AppointmentStatus.SCHEDULED)
+                    .max(Comparator.comparing(Appointment::getDate)
+                            .thenComparing(Appointment::getStartTime))
+                    .ifPresent(a -> {
+                        a.setStatus(AppointmentStatus.COMPLETED);
+                    });
 
             return ClinicalConsultationMapper.toDto(
                     consultationRepository.save(c)
@@ -152,9 +156,9 @@ public class ClinicalConsultationServiceImpl implements ClinicalConsultationServ
         // CASO B: CONTINÚA TRATAMIENTO
         // =====================================================
         // 🔹 NO se cierra la consulta
-        // 🔹 NO se cambia el estado
+        // 🔹 NO se cambia el estado aquí
         // 🔹 La transición a IN_PROGRESS ocurre
-        //    SOLO cuando se crea la cita (AppointmentService)
+        //    SOLO cuando se crea la cita
 
         return ClinicalConsultationMapper.toDto(
                 consultationRepository.save(c)
@@ -245,4 +249,59 @@ public class ClinicalConsultationServiceImpl implements ClinicalConsultationServ
         consultationRepository.save(consultation);
     }
 
+    // ============================
+    // DESDE CITA (DIRECT)
+    // ============================
+
+    @Override
+    public ClinicalConsultationDto startFromAppointment(
+            Long appointmentId,
+            String dentistUsername
+    ) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
+
+        if (appointment.getConsultation() != null) {
+            ClinicalConsultation c = appointment.getConsultation();
+            c.setStatus(ConsultationStatus.ACTIVE);
+            return ClinicalConsultationMapper.toDto(
+                    consultationRepository.save(c)
+            );
+        }
+
+        Clinic clinic = appointment.getClinic();
+        User dentist = userRepository.findByUsername(dentistUsername)
+                .orElseThrow(() -> new IllegalArgumentException("Odontólogo no encontrado"));
+
+        Patient patient = appointment.getPatient();
+        if (patient == null) {
+            throw new IllegalStateException("La cita no tiene paciente asociado");
+        }
+
+        DentalChart chart = dentalChartRepository
+                .findByClinicIdAndPatientIdAndStatus(
+                        clinic.getId(),
+                        patient.getId(),
+                        DentalChart.ChartStatus.ACTIVE
+                )
+                .orElseThrow(() ->
+                        new IllegalStateException("El paciente no tiene odontograma activo")
+                );
+
+        ClinicalConsultation consultation = ClinicalConsultation.builder()
+                .clinic(clinic)
+                .patient(patient)
+                .dentist(dentist)
+                .dentalChart(chart)
+                .status(ConsultationStatus.ACTIVE)
+                .startedAt(Instant.now())
+                .build();
+
+        ClinicalConsultation saved = consultationRepository.save(consultation);
+
+        appointment.setConsultation(saved);
+        appointmentRepository.save(appointment);
+
+        return ClinicalConsultationMapper.toDto(saved);
+    }
 }

@@ -22,6 +22,11 @@ public class AppointmentDto {
     private LocalTime endTime;
     private Integer durationMinutes;
 
+    private Long consultationId;
+    private String origin;
+    private Boolean specialCase;
+
+
     private String status;
     private String reason;
 
