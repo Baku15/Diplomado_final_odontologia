@@ -8,6 +8,13 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -161,4 +168,73 @@ public class MailServiceImpl implements MailService {
             throw new IllegalStateException("Error enviando correo de activación de paciente: " + e.getMessage(), e);
         }
     }
+
+
+    @Override
+    public void sendAppointmentReminderEmail(
+            String to,
+            String patientFullName,
+            String doctorFullName,
+            String clinicName,
+            LocalDate date,
+            LocalTime startTime
+    ) {
+        try {
+            var mime = mailSender.createMimeMessage();
+            var helper = new MimeMessageHelper(mime, "UTF-8");
+
+            helper.setTo(to);
+            helper.setSubject("Recordatorio de cita odontológica");
+
+            helper.setText("""
+        <div style="font-family:Arial,sans-serif; line-height:1.6;">
+          <h2>Recordatorio de cita</h2>
+
+          <p>Estimado/a <strong>%s</strong>,</p>
+
+          <p>
+            Le recordamos que tiene una cita programada en la clínica
+            <strong>%s</strong>.
+          </p>
+
+          <ul>
+            <li><strong>Profesional:</strong> %s</li>
+            <li><strong>Fecha:</strong> %s</li>
+            <li><strong>Hora:</strong> %s</li>
+          </ul>
+
+          <p style="font-size:13px; color:#4b5563;">
+            Atentamente,<br/>
+            Equipo %s
+          </p>
+        </div>
+        """.formatted(
+                    patientFullName,
+                    clinicName,
+                    doctorFullName,
+                    formatDate(date),
+                    startTime,
+                    clinicName
+            ), true);
+
+            helper.setFrom("no-reply@odontoweb.com");
+            mailSender.send(mime);
+
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Error enviando recordatorio de cita: " + e.getMessage(), e
+            );
+        }
+    }
+    private String formatDate(LocalDate date) {
+        return date.format(
+                DateTimeFormatter.ofPattern(
+                        "EEEE dd 'de' MMMM 'de' yyyy",
+                        new Locale("es", "ES")
+                )
+        );
+    }
+
+
+
 }

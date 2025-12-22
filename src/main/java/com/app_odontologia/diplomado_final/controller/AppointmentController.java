@@ -84,14 +84,7 @@ public class AppointmentController {
         );
     }
 
-    @PostMapping("/{appointmentId}/complete")
-    public ResponseEntity<AppointmentDto> complete(
-            @PathVariable Long appointmentId
-    ) {
-        return ResponseEntity.ok(
-                appointmentService.completeAppointment(appointmentId)
-        );
-    }
+
 
     @PostMapping("/doctor/{doctorId}")
     public ResponseEntity<AppointmentDto> createDirect(
@@ -138,15 +131,6 @@ public class AppointmentController {
     ) {
         return ResponseEntity.ok(
                 appointmentService.updateAppointment(appointmentId, request)
-        );
-    }
-
-    @PostMapping("/{appointmentId}/complete-direct")
-    public ResponseEntity<AppointmentDto> completeDirect(
-            @PathVariable Long appointmentId
-    ) {
-        return ResponseEntity.ok(
-                appointmentService.completeDirectAppointment(appointmentId)
         );
     }
 

@@ -137,5 +137,17 @@ public class Appointment {
     @Column(name = "completed_at")
     private Instant completedAt;
 
+    @Column(name = "email_reminder_sent_at")
+    private Instant emailReminderSentAt;
+
+    // ===== Recordatorios por correo (auditoría) =====
+
+    @Column(name = "email_reminder_failed_at")
+    private Instant emailReminderFailedAt;
+
+    @Column(name = "email_reminder_error", length = 255)
+    private String emailReminderError;
+
+
 
 }

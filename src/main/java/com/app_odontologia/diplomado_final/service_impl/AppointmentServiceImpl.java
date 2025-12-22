@@ -11,15 +11,11 @@ import com.app_odontologia.diplomado_final.service.AppointmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import com.app_odontologia.diplomado_final.model.enums.AppointmentOrigin;
-
-import com.app_odontologia.diplomado_final.model.enums.AppointmentOrigin;
-
-
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -31,11 +27,10 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
     private final AppointmentAuditRepository auditRepository;
-    private final SystemAlertRepository systemAlertRepository;
     private final ClinicalConsultationRepository consultationRepository;
 
     // =====================================================
-    // CREAR CITA (CLINICAL / DIRECT)
+    // CREAR CITA CLÍNICA
     // =====================================================
 
     @Override
@@ -51,13 +46,29 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         Patient patient = patientRepository.findByIdAndClinicId(patientId, clinicId)
                 .orElseThrow(() -> new IllegalArgumentException("Paciente no encontrado"));
+        // ===============================
+// VALIDACIÓN DE RECORDATORIO EMAIL
+// ===============================
+        if (Boolean.TRUE.equals(req.getSendEmail())) {
+
+            if (patient.getEmail() == null || patient.getEmail().isBlank()) {
+                throw new IllegalStateException(
+                        "El paciente no tiene correo electrónico registrado"
+                );
+            }
+
+            if (Boolean.FALSE.equals(patient.getAllowEmailReminders())) {
+                throw new IllegalStateException(
+                        "El paciente no permite recordatorios por correo electrónico"
+                );
+            }
+        }
+
 
         User doctor = userRepository.findById(doctorId)
                 .orElseThrow(() -> new IllegalArgumentException("Doctor no encontrado"));
 
-        int duration = req.getDurationMinutes() != null
-                ? req.getDurationMinutes()
-                : clinic.getDefaultAppointmentDurationMinutes();
+        int duration = req.getDurationMinutes();
 
         if (duration < 30 || duration % 15 != 0) {
             throw new IllegalStateException("Duración inválida");
@@ -76,7 +87,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 );
 
         if (overlap) {
-            throw new IllegalStateException("El horario seleccionado no está disponible");
+            throw new IllegalStateException("Horario no disponible");
         }
 
         Appointment appointment = Appointment.builder()
@@ -88,47 +99,77 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .endTime(end)
                 .durationMinutes(duration)
                 .reason(req.getReason())
-                .sendWhatsapp(req.getSendWhatsapp())
                 .sendEmail(req.getSendEmail())
+                .sendWhatsapp(req.getSendWhatsapp())
                 .reminderMinutesBefore(req.getReminderMinutesBefore())
+                .origin(AppointmentOrigin.CLINICAL)
                 .status(AppointmentStatus.SCHEDULED)
-                .origin(req.getOrigin() != null ? req.getOrigin() : AppointmentOrigin.DIRECT)
                 .build();
 
-        // ===== CLINICAL =====
-        if (req.getOrigin() == AppointmentOrigin.CLINICAL) {
-
-            if (req.getConsultationId() == null) {
-                throw new IllegalStateException("Una cita clínica requiere consultationId");
-            }
-
-            ClinicalConsultation consultation =
-                    consultationRepository.findById(req.getConsultationId())
-                            .orElseThrow(() -> new IllegalArgumentException("Consulta no encontrada"));
-
-            if (consultation.getStatus() != ConsultationStatus.ACTIVE) {
-                throw new IllegalStateException("La consulta no está ACTIVE");
-            }
-
-            // 🔗 Vincular correctamente
-            appointment.setConsultation(consultation);
-            appointment.setPatient(consultation.getPatient());
-
-            // 🔄 La consulta pasa a IN_PROGRESS
-            consultation.setStatus(ConsultationStatus.IN_PROGRESS);
-            consultationRepository.save(consultation);
-
-            // ✅ LA CITA QUEDA SCHEDULED (NO COMPLETED)
-            appointment.setStatus(AppointmentStatus.SCHEDULED);
+        if (req.getConsultationId() == null) {
+            throw new IllegalStateException("Cita clínica requiere consultationId");
         }
 
-// 🔥 UN SOLO SAVE, AL FINAL
-        Appointment saved = appointmentRepository.save(appointment);
+        ClinicalConsultation consultation =
+                consultationRepository.findById(req.getConsultationId())
+                        .orElseThrow(() -> new IllegalArgumentException("Consulta no encontrada"));
 
-        return AppointmentMapper.toDto(saved);
+        if (consultation.getStatus() != ConsultationStatus.ACTIVE) {
+            throw new IllegalStateException("Consulta no está ACTIVE");
+        }
+
+        appointment.setConsultation(consultation);
+        consultation.setStatus(ConsultationStatus.IN_PROGRESS);
+
+        consultationRepository.save(consultation);
+
+        return AppointmentMapper.toDto(
+                appointmentRepository.save(appointment)
+        );
     }
 
-        // =====================================================
+    // =====================================================
+    // CREAR CITA DIRECTA
+    // =====================================================
+
+    @Override
+    public AppointmentDto createDirectAppointment(
+            Long clinicId,
+            Long doctorId,
+            CreateAppointmentRequest req
+    ) {
+
+        Clinic clinic = clinicRepository.findById(clinicId)
+                .orElseThrow(() -> new IllegalArgumentException("Clínica no encontrada"));
+
+        User doctor = userRepository.findById(doctorId)
+                .orElseThrow(() -> new IllegalArgumentException("Doctor no encontrado"));
+
+        int duration = req.getDurationMinutes();
+
+        LocalTime start = req.getStartTime();
+        LocalTime end = start.plusMinutes(duration);
+
+        Appointment appointment = Appointment.builder()
+                .clinic(clinic)
+                .doctor(doctor)
+                .date(req.getDate())
+                .startTime(start)
+                .endTime(end)
+                .durationMinutes(duration)
+                .reason(req.getReason())
+                .origin(AppointmentOrigin.DIRECT)
+                .status(AppointmentStatus.SCHEDULED)
+                .specialCase(true)
+                .specialCaseNote("Paciente no registrado")
+                .build();
+
+        return AppointmentMapper.toDto(
+                appointmentRepository.save(appointment)
+        );
+    }
+
+    // =====================================================
     // AGENDA
     // =====================================================
 
@@ -143,162 +184,37 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     // =====================================================
-    // ACCIONES SOBRE CITA
+    // COMPLETAR CITA CLÍNICA (MANUAL)
     // =====================================================
 
     @Override
-    public AppointmentDto cancelAppointment(Long appointmentId) {
+    public AppointmentDto completeClinicalAppointment(
+            Long clinicId,
+            Long patientId,
+            Long appointmentId
+    ) {
 
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
 
-        if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
-            throw new IllegalStateException("Solo se pueden cancelar citas programadas");
+        if (!appointment.getClinic().getId().equals(clinicId)) {
+            throw new IllegalArgumentException("Clínica incorrecta");
         }
 
-        appointment.setStatus(AppointmentStatus.CANCELLED);
-        return AppointmentMapper.toDto(appointment);
-    }
-
-    @Override
-    public AppointmentDto markNoShow(Long appointmentId) {
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
-
-        if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
-            throw new IllegalStateException("Solo se puede marcar NO_SHOW en citas programadas");
+        if (appointment.getOrigin() != AppointmentOrigin.CLINICAL) {
+            throw new IllegalStateException("No es cita clínica");
         }
 
-        appointment.setStatus(AppointmentStatus.NO_SHOW);
-        return AppointmentMapper.toDto(appointment);
-    }
-
-    @Override
-    public AppointmentDto confirmAttendance(Long appointmentId) {
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
-
-        appointment.setAttendanceConfirmed(true);
-        appointment.setAttendanceConfirmedAt(Instant.now());
-
-        auditRepository.save(
-                AppointmentAudit.builder()
-                        .appointment(appointment)
-                        .patient(appointment.getPatient())
-                        .eventType(AppointmentAudit.EventType.CONFIRMED)
-                        .build()
-        );
-
-        return AppointmentMapper.toDto(appointment);
-    }
-
-    @Override
-    public AppointmentDto cancelLate(Long appointmentId, boolean accepted) {
-
-        if (!accepted) {
-            throw new IllegalStateException("Debe aceptar la advertencia");
+        if (!appointment.getPatient().getId().equals(patientId)) {
+            throw new IllegalArgumentException("Paciente incorrecto");
         }
 
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
-
-        appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointment.setCancelledAt(Instant.now());
-        appointment.setCancelledBy(Appointment.CancelledBy.PATIENT);
-        appointment.setLateCancellation(true);
-
-        return AppointmentMapper.toDto(appointment);
-    }
-
-    @Override
-    public AppointmentDto markSpecialCase(Long appointmentId, String note) {
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
-
         if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
-            throw new IllegalStateException("Solo en citas programadas");
-        }
-
-        appointment.setSpecialCase(true);
-        appointment.setSpecialCaseNote(note);
-
-        return AppointmentMapper.toDto(appointment);
-    }
-
-    @Override
-    public AppointmentDto completeAppointment(Long appointmentId) {
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
-
-        if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
-            throw new IllegalStateException("Solo citas programadas");
+            throw new IllegalStateException("Solo SCHEDULED");
         }
 
         appointment.setStatus(AppointmentStatus.COMPLETED);
-        return AppointmentMapper.toDto(appointment);
-    }
-
-    // =====================================================
-    // CREAR CITA DIRECTA (SIN PACIENTE)
-    // =====================================================
-
-    @Override
-    public AppointmentDto createDirectAppointment(
-            Long clinicId,
-            Long doctorId,
-            CreateAppointmentRequest request
-    ) {
-
-        Clinic clinic = clinicRepository.findById(clinicId)
-                .orElseThrow(() -> new IllegalArgumentException("Clínica no encontrada"));
-
-        User doctor = userRepository.findById(doctorId)
-                .orElseThrow(() -> new IllegalArgumentException("Doctor no encontrado"));
-
-        int duration = request.getDurationMinutes();
-
-        if (duration < 30 || duration % 15 != 0) {
-            throw new IllegalStateException("Duración inválida");
-        }
-
-        LocalTime start = request.getStartTime();
-        LocalTime end = start.plusMinutes(duration);
-
-        boolean overlap = appointmentRepository
-                .existsByDoctorIdAndDateAndStartTimeLessThanAndEndTimeGreaterThanAndStatusIn(
-                        doctorId,
-                        request.getDate(),
-                        end,
-                        start,
-                        List.of(AppointmentStatus.SCHEDULED)
-                );
-
-        if (overlap) {
-            throw new IllegalStateException("Horario ya ocupado");
-        }
-
-        Appointment appointment = Appointment.builder()
-                .clinic(clinic)
-                .doctor(doctor)
-                .patient(null)
-                .consultation(null)
-                .date(request.getDate())
-                .startTime(start)
-                .endTime(end)
-                .durationMinutes(duration)
-                .reason(request.getReason())
-                .sendEmail(request.getSendEmail())
-                .sendWhatsapp(request.getSendWhatsapp())
-                .reminderMinutesBefore(request.getReminderMinutesBefore())
-                .origin(AppointmentOrigin.DIRECT)
-                .specialCase(true)
-                .specialCaseNote("Paciente aún no registrado")
-                .status(AppointmentStatus.SCHEDULED)
-                .build();
+        appointment.setCompletedAt(Instant.now());
 
         return AppointmentMapper.toDto(
                 appointmentRepository.save(appointment)
@@ -306,8 +222,92 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
 
     // =====================================================
-    // EDITAR CITA (DESDE AGENDA O CLÍNICA)
+    // COMPLETAR CITA DIRECTA (MANUAL)
     // =====================================================
+
+    @Override
+    public void completeDirectAppointment(
+            Long clinicId,
+            Long appointmentId,
+            String dentistUsername
+    ) {
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
+
+        if (!appointment.getClinic().getId().equals(clinicId)) {
+            throw new IllegalArgumentException("Clínica incorrecta");
+        }
+
+        if (appointment.getOrigin() != AppointmentOrigin.DIRECT) {
+            throw new IllegalStateException("No es DIRECT");
+        }
+
+        if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
+            throw new IllegalStateException("Solo SCHEDULED");
+        }
+
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        appointment.setCompletedAt(Instant.now());
+
+        appointmentRepository.save(appointment);
+    }
+
+    // =====================================================
+    // OTROS
+    // =====================================================
+
+    @Override
+    public AppointmentDto cancelAppointment(Long appointmentId) {
+        Appointment ap = appointmentRepository.findById(appointmentId)
+                .orElseThrow();
+        ap.setStatus(AppointmentStatus.CANCELLED);
+        return AppointmentMapper.toDto(ap);
+    }
+
+    @Override
+    public AppointmentDto markNoShow(Long appointmentId) {
+        Appointment ap = appointmentRepository.findById(appointmentId)
+                .orElseThrow();
+        ap.setStatus(AppointmentStatus.NO_SHOW);
+        return AppointmentMapper.toDto(ap);
+    }
+
+    @Override
+    public AppointmentDto confirmAttendance(Long appointmentId) {
+        Appointment ap = appointmentRepository.findById(appointmentId)
+                .orElseThrow();
+        ap.setAttendanceConfirmed(true);
+        return AppointmentMapper.toDto(ap);
+    }
+
+    @Override
+    public AppointmentDto cancelLate(Long appointmentId, boolean accepted) {
+        Appointment ap = appointmentRepository.findById(appointmentId)
+                .orElseThrow();
+        ap.setStatus(AppointmentStatus.CANCELLED);
+        return AppointmentMapper.toDto(ap);
+    }
+
+    @Override
+    public AppointmentDto markSpecialCase(Long appointmentId, String note) {
+        Appointment ap = appointmentRepository.findById(appointmentId)
+                .orElseThrow();
+        ap.setSpecialCase(true);
+        ap.setSpecialCaseNote(note);
+        return AppointmentMapper.toDto(ap);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AppointmentDto findByConsultationId(Long consultationId) {
+        return appointmentRepository
+                .findAllByConsultationId(consultationId)
+                .stream()
+                .findFirst()
+                .map(AppointmentMapper::toDto)
+                .orElse(null);
+    }
 
     @Override
     public AppointmentDto updateAppointment(
@@ -348,6 +348,30 @@ public class AppointmentServiceImpl implements AppointmentService {
             throw new IllegalStateException("Horario ya ocupado");
         }
 
+        if (Boolean.TRUE.equals(req.getSendEmail())) {
+
+            Patient patient = appointment.getPatient();
+
+            if (patient == null ||
+                    patient.getEmail() == null ||
+                    patient.getEmail().isBlank()) {
+
+                throw new IllegalStateException(
+                        "No se puede enviar recordatorio: el paciente no tiene email"
+                );
+            }
+
+            if (Boolean.FALSE.equals(patient.getAllowEmailReminders())) {
+                throw new IllegalStateException(
+                        "El paciente no permite recordatorios por correo electrónico"
+                );
+            }
+
+            // 🔄 Si se vuelve a activar, limpiar flag de envío
+            appointment.setEmailReminderSentAt(null);
+        }
+
+
         appointment.setStartTime(start);
         appointment.setEndTime(end);
         appointment.setDurationMinutes(duration);
@@ -356,77 +380,9 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setSendWhatsapp(req.getSendWhatsapp());
         appointment.setReminderMinutesBefore(req.getReminderMinutesBefore());
 
-        return AppointmentMapper.toDto(appointment);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public AppointmentDto findByConsultationId(Long consultationId) {
-
-        return appointmentRepository
-                .findAllByConsultationId(consultationId)
-                .stream()
-                .findFirst()
-                .map(AppointmentMapper::toDto)
-                .orElse(null);
-    }
-    @Override
-    public AppointmentDto completeDirectAppointment(Long appointmentId) {
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
-
-        // 🔒 Solo citas DIRECT
-        if (appointment.getOrigin() != AppointmentOrigin.DIRECT) {
-            throw new IllegalStateException(
-                    "Solo las citas DIRECT pueden marcarse manualmente como completadas"
-            );
-        }
-
-        // 🔒 Solo si está programada
-        if (appointment.getStatus() != AppointmentStatus.SCHEDULED) {
-            throw new IllegalStateException(
-                    "Solo se pueden completar citas programadas"
-            );
-        }
-
-        // ✅ Marcar como completada
-        appointment.setStatus(AppointmentStatus.COMPLETED);
-
         return AppointmentMapper.toDto(
                 appointmentRepository.save(appointment)
         );
     }
-
-
-    @Override
-    @Transactional
-    public void completeDirectAppointment(
-            Long clinicId,
-            Long appointmentId,
-            String dentistUsername
-    ) {
-
-        Appointment appointment = appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Cita no encontrada"));
-
-        if (!appointment.getClinic().getId().equals(clinicId)) {
-            throw new IllegalArgumentException("La cita no pertenece a esta clínica");
-        }
-
-        if (appointment.getOrigin() != AppointmentOrigin.DIRECT) {
-            throw new IllegalStateException("Solo las citas DIRECT pueden completarse manualmente");
-        }
-
-        if (appointment.getStatus() != Appointment.AppointmentStatus.SCHEDULED) {
-            throw new IllegalStateException("Solo se pueden completar citas SCHEDULED");
-        }
-
-        appointment.setStatus(Appointment.AppointmentStatus.COMPLETED);
-        appointment.setCompletedAt(Instant.now());
-
-        appointmentRepository.save(appointment);
-    }
-
 
 }
