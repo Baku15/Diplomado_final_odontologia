@@ -239,15 +239,14 @@ public class ClinicalConsultationServiceImpl implements ClinicalConsultationServ
             return;
         }
 
+        // 🔥 SOLO cambia estado, NO cerrar aquí
         if (hasClinicalChanges) {
             consultation.setStatus(ConsultationStatus.IN_PROGRESS);
-        } else {
-            consultation.setStatus(ConsultationStatus.CLOSED);
-            consultation.setEndedAt(Instant.now());
         }
 
         consultationRepository.save(consultation);
     }
+
 
     // ============================
     // DESDE CITA (DIRECT)

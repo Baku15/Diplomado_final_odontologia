@@ -1,6 +1,7 @@
 package com.app_odontologia.diplomado_final.service_impl;
 
 import com.app_odontologia.diplomado_final.dto.appointment.*;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorDashboardTodayDto;
 import com.app_odontologia.diplomado_final.mapper.AppointmentMapper;
 import com.app_odontologia.diplomado_final.model.entity.*;
 import com.app_odontologia.diplomado_final.model.entity.Appointment.AppointmentStatus;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -28,6 +30,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final UserRepository userRepository;
     private final AppointmentAuditRepository auditRepository;
     private final ClinicalConsultationRepository consultationRepository;
+    private final SystemAlertRepository systemAlertRepository;
+
 
     // =====================================================
     // CREAR CITA CLÍNICA
@@ -384,5 +388,93 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointmentRepository.save(appointment)
         );
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DoctorDashboardTodayDto getDoctorDashboardToday(String username) {
+
+        User doctor = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        Long doctorId = doctor.getId();
+        Long clinicId = doctor.getClinic().getId();
+
+        LocalDate today = LocalDate.now();
+
+        long total = appointmentRepository.countByDoctorIdAndDate(doctorId, today);
+        long completed = appointmentRepository.countByDoctorIdAndDateAndStatus(
+                doctorId, today, AppointmentStatus.COMPLETED);
+        long scheduled = appointmentRepository.countByDoctorIdAndDateAndStatus(
+                doctorId, today, AppointmentStatus.SCHEDULED);
+        long noShow = appointmentRepository.countByDoctorIdAndDateAndStatus(
+                doctorId, today, AppointmentStatus.NO_SHOW);
+        long cancelled = appointmentRepository.countByDoctorIdAndDateAndStatus(
+                doctorId, today, AppointmentStatus.CANCELLED);
+
+        List<Appointment> todayAppointments =
+                appointmentRepository.findByDoctorIdAndDateOrderByStartTimeAsc(doctorId, today);
+
+        LocalTime now = LocalTime.now();
+
+        Appointment current = todayAppointments.stream()
+                .filter(a -> !a.getStartTime().isAfter(now) && a.getEndTime().isAfter(now))
+                .findFirst()
+                .orElse(null);
+
+        Appointment next = todayAppointments.stream()
+                .filter(a -> a.getStartTime().isAfter(now))
+                .findFirst()
+                .orElse(null);
+
+        Instant startOfDay = today.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant endOfDay = today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+
+        List<SystemAlert> alerts = systemAlertRepository
+                .findByClinicIdAndResolvedFalseAndCreatedAtBetweenOrderByCreatedAtDesc(
+                        clinicId, startOfDay, endOfDay
+                );
+
+        return DoctorDashboardTodayDto.builder()
+                .date(today)
+                .total(total)
+                .completed(completed)
+                .scheduled(scheduled)
+                .noShow(noShow)
+                .cancelled(cancelled)
+                .currentAppointment(current == null ? null :
+                        DoctorDashboardTodayDto.AppointmentMiniDto.builder()
+                                .id(current.getId())
+                                .patientName(
+                                        current.getPatient().getGivenName() + " " +
+                                                current.getPatient().getFamilyName()
+                                )
+                                .startTime(current.getStartTime())
+                                .endTime(current.getEndTime())
+                                .build()
+                )
+                .nextAppointment(next == null ? null :
+                        DoctorDashboardTodayDto.AppointmentMiniDto.builder()
+                                .id(next.getId())
+                                .patientName(
+                                        next.getPatient().getGivenName() + " " +
+                                                next.getPatient().getFamilyName()
+                                )
+                                .startTime(next.getStartTime())
+                                .endTime(next.getEndTime())
+                                .build()
+                )
+                .alertsToday(
+                        alerts.stream()
+                                .map(a -> new DoctorDashboardTodayDto.AlertMiniDto(
+                                        a.getId(),
+                                        a.getType().name(),
+                                        a.getSeverity().name(),
+                                        a.getMessage()
+                                ))
+                                .toList()
+                )
+                .build();
+    }
+
 
 }

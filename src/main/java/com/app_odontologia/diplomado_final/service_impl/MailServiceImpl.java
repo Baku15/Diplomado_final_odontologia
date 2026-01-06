@@ -183,6 +183,20 @@ public class MailServiceImpl implements MailService {
             var mime = mailSender.createMimeMessage();
             var helper = new MimeMessageHelper(mime, "UTF-8");
 
+            // ===== FORMATEO HUMANO (CLÍNICO) =====
+            // Fecha: lunes 22 de diciembre de 2025
+            String formattedDate = date.format(
+                    java.time.format.DateTimeFormatter.ofPattern(
+                            "EEEE d 'de' MMMM 'de' yyyy",
+                            new java.util.Locale("es", "ES")
+                    )
+            );
+
+            // Hora: 12:30 (SIN segundos ni milisegundos)
+            String formattedTime = startTime.format(
+                    java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+            );
+
             helper.setTo(to);
             helper.setSubject("Recordatorio de cita odontológica");
 
@@ -212,8 +226,8 @@ public class MailServiceImpl implements MailService {
                     patientFullName,
                     clinicName,
                     doctorFullName,
-                    formatDate(date),
-                    startTime,
+                    formattedDate,
+                    formattedTime,
                     clinicName
             ), true);
 
@@ -226,6 +240,7 @@ public class MailServiceImpl implements MailService {
             );
         }
     }
+
     private String formatDate(LocalDate date) {
         return date.format(
                 DateTimeFormatter.ofPattern(

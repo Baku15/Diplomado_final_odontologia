@@ -3,11 +3,14 @@ package com.app_odontologia.diplomado_final.service;
 import com.app_odontologia.diplomado_final.dto.appointment.AppointmentDto;
 import com.app_odontologia.diplomado_final.dto.appointment.CreateAppointmentRequest;
 import com.app_odontologia.diplomado_final.dto.appointment.UpdateAppointmentRequest;
+import com.app_odontologia.diplomado_final.dto.doctor.DoctorDashboardTodayDto;
 
 import java.time.LocalDate;
 import java.util.List;
 
 public interface AppointmentService {
+    DoctorDashboardTodayDto getDoctorDashboardToday(String username);
+
 
     AppointmentDto createAppointment(
             Long clinicId,

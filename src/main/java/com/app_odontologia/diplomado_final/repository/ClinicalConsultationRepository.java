@@ -1,3 +1,4 @@
+// src/main/java/com/app_odontologia/diplomado_final/repository/ClinicalConsultationRepository.java
 package com.app_odontologia.diplomado_final.repository;
 
 import com.app_odontologia.diplomado_final.model.entity.ClinicalConsultation;
@@ -22,18 +23,17 @@ public interface ClinicalConsultationRepository
     );
 
     @Query("""
-    SELECT c
-    FROM ClinicalConsultation c
-    WHERE c.clinic.id = :clinicId
-      AND c.patient.id = :patientId
-      AND c.status <> 'CLOSED'
-    ORDER BY c.startedAt DESC
-""")
+        SELECT c
+        FROM ClinicalConsultation c
+        WHERE c.clinic.id = :clinicId
+          AND c.patient.id = :patientId
+          AND c.status <> 'CLOSED'
+        ORDER BY c.startedAt DESC
+    """)
     Optional<ClinicalConsultation> findOpenConsultation(
             @Param("clinicId") Long clinicId,
             @Param("patientId") Long patientId
     );
-
 
     List<ClinicalConsultation> findByClinicIdAndPatientIdOrderByStartedAtDesc(
             Long clinicId,
@@ -61,40 +61,31 @@ public interface ClinicalConsultationRepository
             Pageable pageable
     );
 
-    // ============================
-    // 📊 MÉTRICAS
-    // ============================
-
-    // 🔹 Total consultas
     long countByClinicId(Long clinicId);
 
-    // 🔹 Consultas por estado
     long countByClinicIdAndStatus(
             Long clinicId,
             ConsultationStatus status
     );
 
-    // 🔹 Consultas por rango de fechas
     long countByClinicIdAndStartedAtBetween(
             Long clinicId,
             Instant from,
             Instant to
     );
 
-    // 🔹 Duración promedio (MINUTOS) — NATIVA (OBLIGATORIO)
     @Query(
             value = """
-        SELECT AVG(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60)
-        FROM clinical_consultations
-        WHERE clinic_id = :clinicId
-          AND status = 'CLOSED'
-          AND ended_at IS NOT NULL
-        """,
+                SELECT AVG(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60)
+                FROM clinical_consultations
+                WHERE clinic_id = :clinicId
+                  AND status = 'CLOSED'
+                  AND ended_at IS NOT NULL
+            """,
             nativeQuery = true
     )
     Double findAverageDurationMinutes(@Param("clinicId") Long clinicId);
 
-    // 🔹 Pacientes activos (al menos una consulta)
     @Query("""
         SELECT COUNT(DISTINCT c.patient.id)
         FROM ClinicalConsultation c
@@ -102,23 +93,182 @@ public interface ClinicalConsultationRepository
     """)
     long countDistinctPatientIdByClinicId(@Param("clinicId") Long clinicId);
 
+    long countByDentistIdAndStartedAtBetween(
+            Long dentistId,
+            Instant start,
+            Instant end
+    );
+
+    long countByDentistIdAndStatusAndStartedAtBetween(
+            Long dentistId,
+            ConsultationStatus status,
+            Instant start,
+            Instant end
+    );
+
     @Query("""
-    SELECT c
-    FROM ClinicalConsultation c
-    WHERE c.patient.id = :patientId
-      AND c.status IN ('ACTIVE', 'IN_PROGRESS')
-    ORDER BY c.startedAt DESC
-""")
-    List<ClinicalConsultation> findOpenConsultations(@Param("patientId") Long patientId);
+        SELECT FUNCTION('date', c.endedAt), COUNT(c)
+        FROM ClinicalConsultation c
+        WHERE c.dentist.id = :dentistId
+          AND c.status = 'CLOSED'
+          AND c.endedAt BETWEEN :start AND :end
+        GROUP BY FUNCTION('date', c.endedAt)
+        ORDER BY FUNCTION('date', c.endedAt)
+    """)
+    List<Object[]> countClosedGroupedByDate(
+            @Param("dentistId") Long dentistId,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
 
+    Page<ClinicalConsultation> findByDentistIdAndStartedAtBetween(
+            Long dentistId,
+            Instant start,
+            Instant end,
+            Pageable pageable
+    );
+
+    Page<ClinicalConsultation> findByDentistIdAndStatusAndStartedAtBetween(
+            Long dentistId,
+            ConsultationStatus status,
+            Instant start,
+            Instant end,
+            Pageable pageable
+    );
 
     @Query("""
-    SELECT COUNT(c) > 0
+        SELECT c
+        FROM ClinicalConsultation c
+        WHERE c.dentist.id = :dentistId
+          AND c.startedAt BETWEEN :start AND :end
+          AND (:status IS NULL OR c.status = :status)
+    """)
+    Page<ClinicalConsultation> findForDashboard(
+            @Param("dentistId") Long dentistId,
+            @Param("start") Instant start,
+            @Param("end") Instant end,
+            @Param("status") ConsultationStatus status,
+            Pageable pageable
+    );
+
+    @Query("""
+        SELECT c
+        FROM ClinicalConsultation c
+        WHERE c.dentist.id = :dentistId
+          AND c.status IN ('ACTIVE', 'IN_PROGRESS')
+    """)
+    List<ClinicalConsultation> findOpenByDentist(
+            @Param("dentistId") Long dentistId
+    );
+
+    @Query(
+            value = """
+                SELECT AVG(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60)
+                FROM clinical_consultations
+                WHERE dentist_id = :dentistId
+                  AND status = 'CLOSED'
+                  AND started_at BETWEEN :start AND :end
+                  AND ended_at IS NOT NULL
+            """,
+            nativeQuery = true
+    )
+    Double findAverageDurationMinutesByDentistAndPeriod(
+            @Param("dentistId") Long dentistId,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    @Query("""
+        SELECT c
+        FROM ClinicalConsultation c
+        WHERE c.dentist.id = :dentistId
+          AND c.status = 'CLOSED'
+          AND c.endedAt BETWEEN :start AND :end
+    """)
+    List<ClinicalConsultation> findClosedByDentistAndEndedAtBetween(
+            @Param("dentistId") Long dentistId,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    List<ClinicalConsultation> findByDentistIdAndStatus(
+            Long dentistId,
+            ConsultationStatus status
+    );
+
+    @Query("""
+        SELECT c
+        FROM ClinicalConsultation c
+        WHERE c.patient.id = :patientId
+          AND c.status IN ('ACTIVE', 'IN_PROGRESS')
+    """)
+    List<ClinicalConsultation> findOpenConsultations(
+            @Param("patientId") Long patientId
+    );
+
+    Page<ClinicalConsultation> findByDentistIdAndStatusAndEndedAtBetween(
+            Long dentistId,
+            ConsultationStatus status,
+            Instant start,
+            Instant end,
+            Pageable pageable
+    );
+
+    // Pacientes activos en período
+    @Query("""
+    SELECT COUNT(DISTINCT c.patient.id)
     FROM ClinicalConsultation c
-    WHERE c.patient.id = :patientId
+    WHERE c.clinic.id = :clinicId
+      AND c.startedAt BETWEEN :from AND :to
+""")
+    long countActivePatientsInPeriod(
+            @Param("clinicId") Long clinicId,
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
+
+    // Pacientes en tratamiento
+    @Query("""
+    SELECT COUNT(DISTINCT c.patient.id)
+    FROM ClinicalConsultation c
+    WHERE c.clinic.id = :clinicId
       AND c.status IN ('ACTIVE', 'IN_PROGRESS')
 """)
+    long countPatientsInTreatment(
+            @Param("clinicId") Long clinicId
+    );
 
-    boolean existsOpenConsultations(@Param("patientId") Long patientId);
+    // Pacientes por día
+    @Query("""
+    SELECT FUNCTION('date', c.startedAt), COUNT(DISTINCT c.patient.id)
+    FROM ClinicalConsultation c
+    WHERE c.clinic.id = :clinicId
+      AND c.startedAt BETWEEN :from AND :to
+    GROUP BY FUNCTION('date', c.startedAt)
+    ORDER BY FUNCTION('date', c.startedAt)
+""")
+    List<Object[]> countPatientsGroupedByDate(
+            @Param("clinicId") Long clinicId,
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
+
+    // Top pacientes por consultas
+    @Query("""
+    SELECT c.patient.id, c.patient.fullNameNorm, COUNT(c)
+    FROM ClinicalConsultation c
+    WHERE c.clinic.id = :clinicId
+      AND c.startedAt BETWEEN :from AND :to
+    GROUP BY c.patient.id, c.patient.fullNameNorm
+    ORDER BY COUNT(c) DESC
+""")
+    List<Object[]> findTopPatients(
+            @Param("clinicId") Long clinicId,
+            @Param("from") Instant from,
+            @Param("to") Instant to
+    );
+
+
+
 
 }
